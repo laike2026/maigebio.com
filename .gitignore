@@ -3,5 +3,7 @@ node_modules/
 .data/
 .env*
 !.env.example
+.secrets/
+maigebio.json
 *.tsbuildinfo
 .DS_Store
