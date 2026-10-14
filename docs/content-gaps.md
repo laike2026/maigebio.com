@@ -1,25 +1,15 @@
-# Content and launch gaps
+# MAIGE content follow-up
 
-Status: local preview and paused Vercel project. Values in the spreadsheet's “填写示例” column are examples, not approved business facts.
+The website can publish category-level information and receive enquiries. The spreadsheet's “填写示例” column is example material, not an approved business fact. The following source material would improve the public site as it becomes available:
 
-## Required before public launch
+1. Exact English legal company name, registered address and approved company history. Until confirmed, public copy uses the MAIGE brand without claiming a legal entity or location.
+2. Original logo artwork with transparent background. The current header uses a crop of the user-provided JPEG.
+3. Original building, manufacturing, corridor and office photographs. The current visuals derive from the user-provided design reference and are presented as illustrative imagery.
+4. Verified dialysis tubing and ELISA SKU records: catalog numbers, parameters, claims, product photos, protocols, safety restrictions and data sheets. The site currently describes product categories only.
+5. Confirmation of any additional product lines, OEM/ODM capabilities, certifications, quality claims and case studies. No unsupported claims are published.
+6. Approved catalog PDFs, technical data sheets and user guides. Current resources link to the enquiry form instead of promising a download that does not exist.
+7. Legal review of the published English Privacy Policy and Terms of Use, including a precise company identity and retention schedule.
 
-1. Confirm the legal Chinese and English company names, registered location, and permitted About copy.
-2. Supply a public business email, direct phone number if it should appear, and a tested notification inbox. The provided WhatsApp QR link is wired into the site; confirm that it remains the preferred business destination.
-3. Supply original Logo artwork if available. The current JPEG has a white square background and is cropped with CSS in the header.
-4. Supply original building, production, clean corridor and office photographs. Current crops come from the user-provided design image solely for local visual review.
-5. Supply real dialysis tubing and ELISA product/SKU records: names, catalog numbers, parameters, claims, safety restrictions, image files, protocols and datasheets. The current site shows only category-level information and no invented specifications.
-6. Confirm whether Reagents is an actual product line. The matching fourth-card layout currently uses Technical Support and Custom Solutions instead of publishing unverified products.
-7. Supply approved catalog PDFs, technical sheets and user guides. The site provides request links instead of false downloads.
-8. Confirm any OEM/ODM capabilities, factory/quality statements, certifications and case studies with supporting evidence.
-9. Complete legally reviewed Privacy Policy, Terms and data retention rules. The GA4 consent control is implemented, but the current Privacy Policy is still a preview placeholder and needs an approved Google Analytics disclosure before public launch.
-10. Configure production enquiry storage, access controls, anti-abuse service and email delivery. Current submissions save only to local `.data/inquiries.jsonl`.
-11. GitHub `laike2026/maigebio.com` is connected to the paused Vercel project `maigebio-com`; `maigebio.com` and `www.maigebio.com` are attached. Resume only after launch review and approval.
-12. MAIGE Bio's GA4 account, `maigebio.com` property and web stream are configured under `sarahlacey8485@gmail.com`. Measurement ID `G-MN1LN6LZ18` is in the Vercel Production environment. Rebuild and validate consent, page views and enquiry events before public launch.
+The production enquiry API uses the Production-only Resend integration and sends to `info@maigebio.com` once `maigebio.com` is verified as a sending domain. Local development saves to ignored `.data/inquiries.jsonl` and explicitly labels this as a local-only submission.
 
-## Content source summary
-
-- Confirmed by direct user request: MAIGE logo image, WhatsApp link, desired visual reference, local review before deployment, and GitHub repository push.
-- Stated as business direction in the project brief: dialysis tubing and ELISA kits; these are shown without SKU-specific claims.
-- Spreadsheet “填写内容” cells: website goals, target customer types, promotion regions and English priority. Some cells are generic template language and still need business review.
-- Not treated as facts: spreadsheet example column, design screenshot phone/email/location/packaging/claims, search snippets from third-party sites.
+GA4 web measurement ID `G-MN1LN6LZ18` is configured for Production and loads only after visitor consent. The server-side service account remains a Production-only secret for a future reporting backend.

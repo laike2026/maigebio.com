@@ -2,11 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { getCopy } from "@/lib/i18n";
-import type { Locale } from "@/lib/site";
+import { href, type Locale } from "@/lib/site";
+import Link from "next/link";
 
 export default function InquiryForm({ locale, initialProduct = "" }: { locale: Locale; initialProduct?: string }) {
   const c = getCopy(locale);
-  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "success" | "local_only" | "error">("idle");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -16,8 +17,15 @@ export default function InquiryForm({ locale, initialProduct = "" }: { locale: L
     try {
       const response = await fetch("/api/inquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...values, locale, sourcePage: window.location.pathname, utmSource: new URLSearchParams(window.location.search).get("utm_source") || "" }) });
       if (!response.ok) throw new Error("submit failed");
-      window.gtag?.("event", "generate_lead", { method: "contact_form" });
-      setStatus("success");
+      const result: { delivery?: string } = await response.json();
+      if (result.delivery === "email") {
+        window.gtag?.("event", "generate_lead", { method: "contact_form" });
+        setStatus("success");
+      } else if (result.delivery === "local_only") {
+        setStatus("local_only");
+      } else {
+        throw new Error("delivery unconfirmed");
+      }
       form.reset();
     } catch { setStatus("error"); }
   }
@@ -32,8 +40,9 @@ export default function InquiryForm({ locale, initialProduct = "" }: { locale: L
       <label className="message-field">{c.message} <b>*</b><textarea name="message" rows={3} required minLength={10} maxLength={4000} placeholder={c.message} /></label>
     </div>
     <div className="honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
-    <div className="form-bottom"><label className="consent"><input type="checkbox" name="consent" value="yes" required /> {c.consent}</label><button className="button button-blue" type="submit" disabled={status === "sending"}>{status === "sending" ? c.sending : c.send}</button></div>
+    <div className="form-bottom"><label className="consent"><input type="checkbox" name="consent" value="yes" required /> {c.consent} <Link href={href(locale, "/privacy-policy")}>{c.privacyTitle}</Link></label><button className="button button-blue" type="submit" disabled={status === "sending"}>{status === "sending" ? c.sending : c.send}</button></div>
     {status === "success" && <p className="form-feedback success" role="status">{c.formSuccess}</p>}
+    {status === "local_only" && <p className="form-feedback success" role="status">{c.formLocal}</p>}
     {status === "error" && <p className="form-feedback error" role="alert">{c.formError}</p>}
   </form>;
 }
