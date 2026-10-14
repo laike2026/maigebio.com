@@ -1,6 +1,6 @@
 # MAIGE Global B2B Website — Local Preview
 
-This Next.js site recreates the supplied MAIGE homepage composition and provides four localized site trees (`/en`, `/ar`, `/ru`, `/es`). The current build is for **local review only**. It is intentionally blocked from indexing and has not been published to GitHub or Vercel.
+This Next.js site recreates the supplied MAIGE homepage composition and provides four localized site trees (`/en`, `/ar`, `/ru`, `/es`). The code is stored in the `laike2026/maigebio.com` GitHub repository for review. The website has **not been deployed** and remains blocked from indexing.
 
 ## Run locally
 

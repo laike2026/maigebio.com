@@ -18,4 +18,4 @@ Date: 2026-10-13 (Asia/Shanghai)
 - Facility images are crops of the supplied design screenshot for **local reference only**. Generic product images are AI-created illustrations, not documented product photography.
 - The enquiry system stores locally and has no email delivery or production database yet. Do not publish it in this state.
 - No Lighthouse scores or real-user Core Web Vitals are claimed. Those require a production-like URL and further testing.
-- External domain, GitHub remote, Vercel project, Search Console and Bing setup are outside this local-only request.
+- Code was pushed to `laike2026/maigebio.com` on 2026-10-14. External domain, Vercel project, Search Console and Bing setup remain pending.
