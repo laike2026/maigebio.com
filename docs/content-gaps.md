@@ -1,6 +1,6 @@
 # Content and launch gaps
 
-Status: local preview. Values in the spreadsheet's “填写示例” column are examples, not approved business facts.
+Status: local preview and paused Vercel project. Values in the spreadsheet's “填写示例” column are examples, not approved business facts.
 
 ## Required before public launch
 
@@ -12,9 +12,10 @@ Status: local preview. Values in the spreadsheet's “填写示例” column are
 6. Confirm whether Reagents is an actual product line. The matching fourth-card layout currently uses Technical Support and Custom Solutions instead of publishing unverified products.
 7. Supply approved catalog PDFs, technical sheets and user guides. The site provides request links instead of false downloads.
 8. Confirm any OEM/ODM capabilities, factory/quality statements, certifications and case studies with supporting evidence.
-9. Complete legally reviewed Privacy Policy, Terms, data retention rules and any required cookie notice.
+9. Complete legally reviewed Privacy Policy, Terms and data retention rules. The GA4 consent control is implemented, but the current Privacy Policy is still a preview placeholder and needs an approved Google Analytics disclosure before public launch.
 10. Configure production enquiry storage, access controls, anti-abuse service and email delivery. Current submissions save only to local `.data/inquiries.jsonl`.
-11. GitHub remote is configured and the code is pushed to `laike2026/maigebio.com`. Provide Vercel project access and the production domain when public deployment is requested.
+11. GitHub `laike2026/maigebio.com` is connected to the paused Vercel project `maigebio-com`; `maigebio.com` and `www.maigebio.com` are attached. Resume only after launch review and approval.
+12. MAIGE Bio's GA4 account, `maigebio.com` property and web stream are configured under `sarahlacey8485@gmail.com`. Measurement ID `G-MN1LN6LZ18` is in the Vercel Production environment. Rebuild and validate consent, page views and enquiry events before public launch.
 
 ## Content source summary
 

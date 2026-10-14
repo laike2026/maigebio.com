@@ -16,6 +16,7 @@ export default function InquiryForm({ locale, initialProduct = "" }: { locale: L
     try {
       const response = await fetch("/api/inquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...values, locale, sourcePage: window.location.pathname, utmSource: new URLSearchParams(window.location.search).get("utm_source") || "" }) });
       if (!response.ok) throw new Error("submit failed");
+      window.gtag?.("event", "generate_lead", { method: "contact_form" });
       setStatus("success");
       form.reset();
     } catch { setStatus("error"); }
