@@ -1,0 +1,123 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: maige
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: maige
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maige -d maige"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address :9001
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 2; done; mc mb --ignore-existing local/maige; mc cors set local/maige /config/minio-cors.xml"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./docker/minio-cors.xml:/config/minio-cors.xml:ro
+
+  migrate:
+    build:
+      context: .
+      target: builder
+    command: ["pnpm", "db:migrate"]
+    environment:
+      DATABASE_URL: postgres://maige:${POSTGRES_PASSWORD}@postgres:5432/maige
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_INDEXABLE: "false"
+        NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID:-}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://maige:${POSTGRES_PASSWORD}@postgres:5432/maige
+      S3_BUCKET: maige
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      INQUIRY_TO_EMAIL: ${INQUIRY_TO_EMAIL:-info@maigebio.com}
+      GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_INDEXABLE: "false"
+      NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-setup:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      target: runner
+    command: ["node", "scripts/worker.mjs"]
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
+      WORKER_API_URL: http://app:3000/api/cron
+      WORKER_INTERVAL_MINUTES: "5"
+    depends_on:
+      - app
+
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        while true; do
+          stamp=$$(date -u +%Y-%m-%dT%H-%M-%SZ);
+          pg_dump -h postgres -U maige -d maige --format=custom --no-owner --no-acl --file=/backups/maige-$$stamp.partial &&
+          mv /backups/maige-$$stamp.partial /backups/maige-$$stamp.dump;
+          find /backups -type f -name 'maige-*.dump' -mtime +30 -delete;
+          sleep 86400;
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  miniodata:
+  backups:

@@ -55,6 +55,7 @@ export default function AnalyticsConsent({ locale, measurementId }: { locale: Lo
     localStorage.setItem(storageKey, next);
     setChoice(next);
     setShowSettings(false);
+    window.dispatchEvent(new CustomEvent("maige-analytics-consent", { detail: next }));
     if (next === "declined" && loaded.current) window.location.reload();
   }
 

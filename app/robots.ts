@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
+import { getSeoSettings } from "@/lib/seo-settings";
 
-export default function robots(): MetadataRoute.Robots {
+export const dynamic = "force-dynamic";
+export default async function robots(): Promise<MetadataRoute.Robots> {
   const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
-  const indexable = Boolean(site && process.env.NEXT_PUBLIC_INDEXABLE === "true");
-  return { rules: { userAgent: "*", allow: indexable ? "/" : undefined, disallow: indexable ? undefined : "/" }, sitemap: indexable ? `${site}/sitemap.xml` : undefined };
+  const settings = await getSeoSettings();
+  const indexable = Boolean(site && process.env.NEXT_PUBLIC_INDEXABLE === "true" && settings.indexingEnabled);
+  return { rules: { userAgent: "*", allow: indexable ? "/" : undefined, disallow: indexable ? undefined : "/" }, sitemap: indexable && settings.sitemapEnabled ? `${site}/sitemap.xml` : undefined };
 }

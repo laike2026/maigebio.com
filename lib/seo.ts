@@ -15,3 +15,14 @@ export function pageMetadata(locale: Locale, title: string, description: string,
     robots: { index: Boolean(site && process.env.NEXT_PUBLIC_INDEXABLE === "true"), follow: Boolean(site && process.env.NEXT_PUBLIC_INDEXABLE === "true") },
   };
 }
+
+export function applyContentSeo(meta: Metadata, seo: Record<string, unknown>): Metadata {
+  if (typeof seo.keywords === "string" && seo.keywords) meta.keywords = seo.keywords.split(",").map((word) => word.trim()).filter(Boolean);
+  if (typeof seo.canonical === "string" && seo.canonical.startsWith("https://")) meta.alternates = { ...meta.alternates, canonical: seo.canonical };
+  if (seo.noindex === true) meta.robots = { index: false, follow: false };
+  const title = typeof seo.ogTitle === "string" && seo.ogTitle ? seo.ogTitle : undefined;
+  const description = typeof seo.ogDescription === "string" && seo.ogDescription ? seo.ogDescription : undefined;
+  const image = typeof seo.ogImage === "string" && seo.ogImage.startsWith("https://") ? seo.ogImage : undefined;
+  if (title || description || image) meta.openGraph = { ...meta.openGraph, title: title || String(meta.title || ""), description: description || String(meta.description || ""), images: image ? [{ url: image }] : meta.openGraph?.images };
+  return meta;
+}

@@ -1,0 +1,1 @@
+UPDATE system_settings SET value=value || '{"defaultTitle":"MAIGE Bioscience","defaultDescription":"Life science research products and global B2B supply from MAIGE Bioscience.","homeTitle":"","homeDescription":"","sitemapEnabled":true}'::jsonb WHERE key='seo';
