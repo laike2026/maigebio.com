@@ -7,7 +7,7 @@ This repository contains the MAIGE multilingual B2B website (`/en`, `/ar`, `/ru`
 - Next.js App Router, React and TypeScript serve the website, admin UI and API.
 - PostgreSQL stores users, sessions, content, leads, tracking aggregates, SEO data, jobs and audit records. Local development uses **persistent PGlite** in `.data/postgres`; production requires `DATABASE_URL` for PostgreSQL.
 - Media is kept in `.data/media` locally, in private Vercel Blob storage on Vercel, or in S3-compatible storage for Docker. Images are converted to WebP and thumbnails are generated.
-- A worker calls `/api/cron` to run scheduled publishing, email retry, GA4/Search Console synchronization, SEO checks, retention cleanup, import jobs and export jobs. Its token is `CRON_SECRET`.
+- Vercel Cron calls `/api/cron` every five minutes in Production; the Docker worker performs the same task for self-hosted use. Its token is `CRON_SECRET`.
 - GA4 reporting uses the server-side service account. Browser events only run after the visitor accepts analytics cookies. Address/WhatsApp clicks and the form funnel are shown separately from verified database enquiries.
 - English is the default editorial language; products and articles have independent Arabic, Russian and Spanish versions. Incomplete translations fall back to English.
 
@@ -24,7 +24,7 @@ pnpm dev --port 3000
 
 Visit `http://127.0.0.1:3000/en` and `http://127.0.0.1:3000/admin`. The initial administrator must change the password at first login. The local administrator for this review was created using an ignored, permission-restricted file under `.secrets`; no credential is committed. **Stop the local Next.js server before running `db:migrate`, `db:create-admin`, `db:backup` or `db:restore` against PGlite**. PGlite cannot be opened safely by two processes; scripts enforce this lock.
 
-For local scheduled jobs, set a `CRON_SECRET` of at least 24 random characters and run `pnpm worker` (or call the protected cron endpoint). Production needs an independent scheduler; browser sessions do not drive jobs.
+For local scheduled jobs, set a `CRON_SECRET` of at least 24 random characters and run `pnpm worker` (or call the protected cron endpoint). The Vercel project uses the schedule in `vercel.json`.
 
 ## Docker development
 
@@ -37,11 +37,11 @@ docker compose run --rm -e ADMIN_EMAIL=admin@example.com -e ADMIN_NAME='MAIGE Ad
 
 The site runs at `http://localhost:3000`, the MinIO console at `http://localhost:9001`. The `pgdata` and `miniodata` volumes preserve data across container recreation. Docker is not installed on the current development machine, so this Compose path is documented but not yet container-tested.
 
-## Production prerequisites
+## Production deployment
 
-Connect a PostgreSQL database and private Vercel Blob store **to the laike2026 Vercel project only** before deploying this branch. Apply all migrations using a direct database URL. Configure environment variables from [.env.example](.env.example); provide server secrets only in sensitive Production variables. The existing Resend integration should continue to send enquiry notifications to `info@maigebio.com`. Verify the sender domain with Resend.
+The **laike2026** Vercel project `maigebio-com` is deployed at [maigebio.com](https://maigebio.com). Neon PostgreSQL and private Vercel Blob are connected only to Production. Migrations `001`–`012` and the initial `admin` account are in place. Server secrets are sensitive Production variables; see [.env.example](.env.example). The existing Resend integration is configured for enquiry notifications to `info@maigebio.com`.
 
-`NEXT_PUBLIC_SITE_URL=https://maigebio.com`, `NEXT_PUBLIC_INDEXABLE=true`, and the SEO settings together control search indexing. Production media storage is mandatory. Missing database or storage configuration must not be treated as a successful deployment.
+`NEXT_PUBLIC_SITE_URL=https://maigebio.com`, `NEXT_PUBLIC_INDEXABLE=true`, and the SEO settings together control search indexing. The initial administrator must change the bootstrap password at first login before using protected content and media functions.
 
 See [operations](docs/admin-operations.md) for migration, scheduler, backup/restore and rollout steps, and [API reference](docs/admin-api.md) for routes and permissions.
 
