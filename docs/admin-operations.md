@@ -10,10 +10,10 @@ For Docker, set `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` an
 
 Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm db:create-admin` before starting PGlite. The password must normally have at least 14 characters. For the approved 12-character one-time bootstrap password, set `ADMIN_ALLOW_SHORT_INITIAL=YES` for that command only. The first login forces a change to a new password of at least 14 characters. The script never prints the password. For PostgreSQL, set `DATABASE_URL_UNPOOLED` or `DATABASE_URL` to a direct connection before invoking the same command. Do not put bootstrap credentials in Git or long-lived Vercel variables.
 
-## Vercel deployment sequence after final acceptance
+## Vercel deployment and checks
 
-1. In the **laike2026** Vercel project `maigebio-com`, provision PostgreSQL and private Vercel Blob storage. Keep storage credentials and connection strings in sensitive Production variables. The project must never be connected to `shagaofeng-rgb`.
-2. Make a database backup or verified empty baseline. Apply all SQL migrations with `DATABASE_URL_UNPOOLED=... pnpm db:migrate`; create the first administrator with `pnpm db:create-admin`.
+1. The **laike2026** Vercel project `maigebio-com` uses Neon PostgreSQL and private Vercel Blob. Their credentials are scoped to sensitive Production variables. Do not connect the project to `shagaofeng-rgb`.
+2. The empty Neon database received migrations `001` through `012` and the initial `admin` user on 2026-10-15. For future schema changes, back up the database first and apply pending SQL with `DATABASE_URL_UNPOOLED=... pnpm db:migrate`.
 3. Add `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, `IP_HASH_SALT`, `ANALYTICS_HASH_SALT`, GA4 service account variables, Resend variables, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_INDEXABLE`, and the GA4 measurement ID from `.env.example`. `GOOGLE_SERVICE_ACCOUNT_JSON` and Blob/Resend secrets must be Production-only and never use the `NEXT_PUBLIC_` prefix. S3 variables are an alternative for Docker or other hosts.
 4. Verify the Resend sending domain and `info@maigebio.com` recipient. Give the service account viewer access to GA4 property `558913614`. Search Console requires separate site permission and API enablement; its source should stay off until configured.
 5. Verify `/api/health`, admin login, media upload, published content API, enquiry persistence/email, tracking consent, sitemap and rollback on Production. A Preview environment needs its own database branch and media store; it must never use Production credentials.
