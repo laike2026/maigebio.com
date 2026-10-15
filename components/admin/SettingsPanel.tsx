@@ -14,9 +14,9 @@ const fields: Record<string, Record<string, string>> = {
 const fileTypes = [["image/jpeg", "JPG / JPEG"], ["image/png", "PNG"], ["image/webp", "WebP"], ["image/svg+xml", "SVG"], ["application/pdf", "PDF"], ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "DOCX"], ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "XLSX"]] as const;
 export default function SettingsPanel({ editable }: { editable: boolean }) {
   const [settings, setSettings] = useState<Settings>({});
-  const [integrations, setIntegrations] = useState<Record<string, boolean>>({});
+  const [integrations, setIntegrations] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(""); const [message, setMessage] = useState("");
-  useEffect(() => { fetch("/api/admin/settings").then((r) => r.json()).then((data) => { setSettings(data.settings || {}); setIntegrations(data.integrations || {}); }); }, []);
+  useEffect(() => { fetch("/api/admin/settings").then((r) => r.json()).then((data) => { setSettings(data.settings || {}); setIntegrations(data.integrationStates || {}); }); }, []);
   function set(key: string, field: string, value: unknown) { setSettings((old) => ({ ...old, [key]: { ...old[key], [field]: value } })); }
   async function save(key: string) {
     setBusy(key); setMessage("");
@@ -26,7 +26,7 @@ export default function SettingsPanel({ editable }: { editable: boolean }) {
   }
   return <><div className="admin-page-head"><div><h1>系统设置</h1></div></div>
     {message && <p className="admin-success" role="status">{message}</p>}
-    <div className="admin-settings-grid"><div className="admin-panel admin-settings-status"><h2>服务状态</h2><div className="admin-detail-grid">{Object.entries(integrations).map(([key, value]) => <div key={key}><strong>{integrationLabels[key] || key}</strong><span className={`admin-status ${value ? "admin-status-qualified" : ""}`}>{value ? "正常" : "待连接"}</span></div>)}</div></div>
+    <div className="admin-settings-grid"><div className="admin-panel admin-settings-status"><h2>服务状态</h2><div className="admin-detail-grid">{Object.entries(integrations).map(([key, value]) => <div key={key}><strong>{integrationLabels[key] || key}</strong><span className={`admin-status ${["已连接", "已配置", "已同步"].includes(value) ? "admin-status-qualified" : ""}`}>{value}</span></div>)}</div></div>
     {Object.keys(labels).map((key) => <div className="admin-panel" key={key}><h2>{labels[key]}</h2><div className="admin-form">{Object.entries(fields[key]).map(([field, label]) => {
       const value = settings[key]?.[field];
       if (key === "upload" && field === "allowedTypes") return <fieldset className="admin-structured wide" key={field}><legend>{label}</legend><div className="admin-toolbar">{fileTypes.map(([mime, name]) => <label className="admin-inline-check" key={mime}><input type="checkbox" checked={Array.isArray(value) && value.includes(mime)} disabled={!editable} onChange={(event) => set(key, field, event.target.checked ? [...(Array.isArray(value) ? value : []), mime] : (Array.isArray(value) ? value : []).filter((item) => item !== mime))} />{name}</label>)}</div></fieldset>;

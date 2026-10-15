@@ -148,7 +148,7 @@
 .admin-analytics-content .admin-stat { min-height: 115px; }
 .admin-analytics-content .admin-stat small { margin-top: 1px; }
 .admin-settings-grid>.admin-panel .admin-primary { margin-top: 18px; }
-.admin-seo-source { display: none; }
+.admin-seo-source { grid-column: 1 / -1; }
 .admin-login-wrap { background: #f2f6fc; }
 .admin-login-card { border-radius: 12px; box-shadow: 0 12px 42px #10345b16; }
 .admin-login-brand p { color: #5d7391; }

@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 
 export default function DashboardTrend({ data }: { data: { day: string; inquiries: number; whatsapp: number }[] }) {
   if (!data.length) return <div className="admin-empty">趋势数据暂不可用</div>;
+  if (!data.some((day) => Number(day.inquiries) > 0 || Number(day.whatsapp) > 0)) return <div className="admin-empty">近 30 天暂无真实询盘或 WhatsApp 点击数据</div>;
   return <div className="admin-trend-chart" role="img" aria-label="近 30 天询盘与 WhatsApp 点击趋势">
     <ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 12, right: 12, left: -18, bottom: 0 }}>
       <CartesianGrid stroke="#e9edf4" vertical={false} />

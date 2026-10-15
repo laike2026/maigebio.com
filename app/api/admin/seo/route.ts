@@ -1,5 +1,6 @@
 import { can, getSession } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
+import { sitePreferences } from "@/lib/admin/site-preferences";
 
 export const runtime = "nodejs";
 export async function GET(request: Request) {
@@ -7,8 +8,13 @@ export async function GET(request: Request) {
   if (!user) return Response.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   if (!can(user, "seo", "view")) return Response.json({ code: "FORBIDDEN" }, { status: 403 });
   const search = new URL(request.url).searchParams;
-  const end = search.get("end") || new Date().toISOString().slice(0, 10);
-  const start = search.get("start") || new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+  const timezone = (await sitePreferences()).timezone;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const end = search.get("end") || today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || Number.isNaN(new Date(`${end}T00:00:00Z`).getTime())) return Response.json({ code: "INVALID_RANGE", message: "日期范围无效" }, { status: 400 });
+  const firstDay = new Date(`${end}T00:00:00Z`);
+  firstDay.setUTCDate(firstDay.getUTCDate() - 29);
+  const start = search.get("start") || firstDay.toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end || (new Date(end).getTime() - new Date(start).getTime()) > 366 * 86400_000) return Response.json({ code: "INVALID_RANGE", message: "日期范围无效，最多 366 天" }, { status: 400 });
   const [daily, pages, keywords, countries, devices, issues, source, redirects] = await Promise.all([
     query("SELECT day::text,sum(clicks)::int AS clicks,sum(impressions)::int AS impressions FROM seo_metrics WHERE day BETWEEN $1 AND $2 GROUP BY day ORDER BY day", [start, end]),

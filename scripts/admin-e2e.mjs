@@ -60,7 +60,20 @@ try {
   assert.equal((await request("/api/admin/auth/forgot-password", "POST", { identifier: "qa-admin" }, false)).status, 200);
   const preferences = (await request("/api/admin/settings")).value.settings.site;
   assert.equal((await request("/api/admin/settings", "PUT", { key: "site", value: { ...preferences, timezone: "UTC", dateFormat: "dd/MM/yyyy", pageSize: 50 } })).status, 200);
-  assert.equal((await request("/api/admin/analytics?preset=today")).status, 200);
+  const publicEvent = await request("/api/track", "POST", {
+    eventName: "contact_whatsapp_click", pagePath: "/en/contact", placement: "contact_page", locale: "en",
+    eventKey: randomUUID(), consent: true,
+  }, false);
+  assert.equal(publicEvent.status, 202);
+  const tracked = await request("/api/admin/analytics?preset=today");
+  assert.equal(tracked.status, 200);
+  assert.ok(tracked.value.events.some((item) => item.event_name === "contact_whatsapp_click" && item.count === 1));
+  const internalEvent = await request("/api/track", "POST", {
+    eventName: "contact_whatsapp_click", pagePath: "/en/contact", placement: "contact_page", locale: "en",
+    eventKey: randomUUID(), consent: true,
+  });
+  assert.equal(internalEvent.status, 202);
+  assert.equal(internalEvent.value.ignored, true);
 
   const category = await request("/api/admin/categories", "POST", { name_en: "QA Category", slug: "qa-category", enabled: true });
   assert.equal(category.status, 201, JSON.stringify(category.value));
