@@ -9,8 +9,7 @@ import { href, whatsappUrl, type Locale } from "@/lib/site";
 
 function Logo({ locale, light = false }: { locale: Locale; light?: boolean }) {
   return <Link className={`brand${light ? " brand-light" : ""}`} href={href(locale)} aria-label="MAIGE home">
-    <span className="brand-image"><Image src="/images/brand/maige-logo.jpg" width={60} height={60} alt="MAIGE logo" priority /></span>
-    <span className="brand-word"><strong>MAIGE</strong><small>BIOSCIENCE</small></span>
+    <Image className="brand-lockup" src="/images/brand/maige-horizontal.png" width={760} height={210} alt="MAIGE Bioscience logo" priority={!light} />
   </Link>;
 }
 

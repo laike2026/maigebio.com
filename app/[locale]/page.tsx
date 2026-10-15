@@ -15,6 +15,14 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: raw } = await params; if (!isLocale(raw)) notFound(); const locale: Locale = raw; const c = getCopy(locale);
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://maigebio.com";
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "Organization", "@id": `${site}/#organization`, name: "MAIGE Bioscience", url: site, logo: { "@type": "ImageObject", url: `${site}/images/brand/maige-logo.jpg`, width: 578, height: 578 }, email: "info@maigebio.com" },
+      { "@type": "WebSite", "@id": `${site}/#website`, name: "MAIGE Bioscience", alternateName: "MAIGE", url: `${site}/`, publisher: { "@id": `${site}/#organization` } },
+    ],
+  };
   const categoryCards = [
     { title: c.dialysis, text: c.dialysisText, image: categories[0].image, path: "/products/dialysis-tubing" },
     { title: c.elisa, text: c.elisaText, image: categories[1].image, path: "/products/elisa-kits" },
@@ -28,6 +36,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
     { title: c.elisaSupport, text: c.elisaSupportText, image: categories[1].image, path: "/products/elisa-kits" },
   ];
   return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     <section className="hero"><div className="hero-glow" aria-hidden="true" /><div className="container hero-inner"><div className="hero-copy"><p className="eyebrow">{c.heroEyebrow}</p><h1>{c.heroTitle}</h1><p className="hero-lead">{c.heroText}</p><form className="hero-search" action={href(locale, "/products")}><select name="category" aria-label={c.allProducts}><option value="">{c.allProducts}</option><option value="dialysis-tubing">{c.dialysis}</option><option value="elisa-kits">{c.elisa}</option></select><input name="q" type="search" placeholder={c.searchPlaceholder} aria-label={c.search} /><button type="submit" aria-label={c.search}>⌕</button></form><div className="popular"><span>{c.popularSearches}</span><Link href={href(locale, "/products?q=dialysis")}>{c.dialysis}</Link><Link href={href(locale, "/products?q=ELISA")}>ELISA</Link><Link href={href(locale, "/oem-odm")}>OEM/ODM</Link></div><div className="hero-buttons"><Link className="button button-blue" href={href(locale, "/products")}>{c.searchProducts} <span>→</span></Link><Link className="button button-outline" href={href(locale, "/resources")}>▤ &nbsp;{c.requestCatalog}</Link></div></div><div className="hero-art"><div className="building-photo" role="img" aria-label="Illustrative building visual" /><div className="hero-script">Empowering<br />Life Science Research</div><div className="hero-badges"><div>♧ <span>{c.reliable}</span></div><div>⚙ <span>{c.flexible}</span></div><div>◎ <span>{c.global}</span></div><div>◇ <span>{c.support}</span></div></div></div></div></section>
 
     <section className="section categories-section"><div className="container"><div className="section-heading"><div><h2>{c.browse}</h2><p>{c.browseText}</p></div></div><div className="card-grid four">{categoryCards.map((card, i) => <article className="category-card" key={card.title}><Link className="category-image" href={href(locale, card.path)} aria-label={card.title}>{card.image ? <Image src={card.image} width={360} height={210} alt="" /> : i === 2 ? <div className="technical-art"><span>⚗</span></div> : <div className="solution-art"><span>⌬</span><span>◌</span><span>✦</span></div>}</Link><div className="category-body"><h3>{card.title}</h3><p>{card.text}</p><Link href={href(locale, card.path)}>{i >= 2 ? c.learnMore : c.viewProducts} <span>→</span></Link></div></article>)}</div></div></section>

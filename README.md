@@ -1,5 +1,7 @@
 # MAIGE Global B2B Website
 
+<img src="public/images/brand/maige-horizontal.png" alt="MAIGE Bioscience official logo" width="340" />
+
 This Next.js site recreates the supplied MAIGE homepage composition and provides four localized site trees (`/en`, `/ar`, `/ru`, `/es`). Source code is in [`laike2026/maigebio.com`](https://github.com/laike2026/maigebio.com), linked to the `maigebio-com` Vercel project in the laike2026 account.
 
 ## Run locally
@@ -30,6 +32,8 @@ Set `NEXT_PUBLIC_SITE_URL=https://maigebio.com` and `NEXT_PUBLIC_INDEXABLE=true`
 ## Assets and content
 
 - `public/images/brand/maige-logo.jpg` is the user-provided brand image.
+- `scripts/generate-brand-assets.mjs` exports favicon, mobile, horizontal lockup and social cards directly from that official image; the logo itself is not redrawn. Run it after replacing the source with an approved higher-resolution master.
+- `public/images/brand/maige-social.png` is the website sharing image; `maige-github-preview.png` is the GitHub repository social preview upload file.
 - `public/images/products/*-illustration.png` are generic illustrations, not product photographs.
 - `public/images/reference/home-reference.png` is the user-provided design screenshot; its visual crops are illustrative until original company photography is supplied.
 

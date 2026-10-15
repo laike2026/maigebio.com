@@ -51,3 +51,10 @@ html[dir="rtl"] .hero-art{inset-inline-start:0;inset-inline-end:auto;transform:s
   .mobile-menu .nav-menu a{display:block}
 }
 @media(prefers-reduced-motion:reduce){.nav-chevron,.language-switcher .chevron{transition:none}}
+
+/* Official MAIGE lockup: retain the supplied artwork instead of typesetting it. */
+.brand{min-width:0;line-height:0}
+.brand-lockup{display:block;width:190px;height:auto}
+.site-footer .brand-lockup{width:190px;border-radius:4px}
+@media(max-width:1160px){.brand-lockup{width:170px}}
+@media(max-width:650px){.brand-lockup{width:146px}}
