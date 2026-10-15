@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { IconCloudUpload } from "@tabler/icons-react";
 
 type Item = { file: File; progress: number; status: "waiting" | "uploading" | "done" | "error"; error?: string; id?: string; url?: string };
 
@@ -41,8 +42,8 @@ export default function MediaUploader() {
     const data = new FormData(); data.append("file", item.file);
     xhr.send(signed ? item.file : data);
   }
-  return <><div className="admin-page-head"><div><span className="admin-eyebrow">MEDIA / UPLOAD</span><h1>上传文件</h1><p>支持 JPG、PNG、WebP、SVG、PDF、DOCX、XLSX；对象存储直传最多 20 MB，本地最多 10 MB。</p></div><Link className="admin-secondary" href="/admin/media">返回媒体库</Link></div>
-    <div className="admin-panel"><label className="admin-drop" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); add(event.dataTransfer.files); }}>拖拽文件到此处，或点击选择<input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.svg,.pdf,.docx,.xlsx" onChange={(event) => { if (event.target.files) add(event.target.files); }} /></label>
+  return <><div className="admin-page-head"><div><h1>上传文件</h1><p>支持图片、PDF、Word 和 Excel 文件</p></div><Link className="admin-secondary" href="/admin/media">返回媒体库</Link></div>
+    <div className="admin-panel"><label className="admin-drop" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); add(event.dataTransfer.files); }}><IconCloudUpload size={32} stroke={1.6} aria-hidden="true" /><span>拖拽文件到此处，或点击选择</span><input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.svg,.pdf,.docx,.xlsx" onChange={(event) => { if (event.target.files) add(event.target.files); }} /></label>
       {items.map((item, index) => <div className="admin-upload-row" key={`${item.file.name}-${index}`}><div><strong>{item.file.name}</strong><small>{(item.file.size / 1024).toFixed(1)} KB · {item.status === "done" ? "完成" : item.status === "error" ? item.error : item.status === "uploading" ? `${item.progress}%` : "等待上传"}</small></div><progress max="100" value={item.progress} /><div>{item.status === "waiting" || item.status === "error" ? <button className="admin-primary" onClick={() => upload(index)}>上传</button> : item.status === "uploading" ? <button className="admin-secondary" onClick={() => active.current?.abort()}>取消</button> : <Link className="admin-secondary" href={`/admin/media/${item.id}`}>查看</Link>}</div></div>)}
     </div>
   </>;

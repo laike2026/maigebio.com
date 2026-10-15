@@ -4,6 +4,7 @@ import { useAdminDate } from "./AdminPreferences";
 
 type Source = { id: string; name_zh: string; enabled: boolean; frequency_minutes: number; last_success_at: string | null; last_error: string | null; next_run_at: string | null };
 type Job = { id: string; source_id: string; status: string; attempt: number; processed_count: number; error_code: string | null; created_at: string; duration_ms: number | null };
+const jobLabels: Record<string, string> = { queued: "等待中", pending: "等待中", running: "同步中", success: "已完成", completed: "已完成", failed: "失败" };
 export default function SyncDashboard({ canRun, canEdit }: { canRun: boolean; canEdit: boolean }) {
   const stamp = useAdminDate();
   const [sources, setSources] = useState<Source[]>([]);
@@ -24,13 +25,13 @@ export default function SyncDashboard({ canRun, canEdit }: { canRun: boolean; ca
   async function run(source: string) {
     setBusy(source); setMessage("");
     const response = await fetch("/api/admin/sync/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source }) });
-    const result = await response.json();
-    setMessage(response.ok ? result.results.map((item: { source: string; status: string; error?: string }) => `${item.source}: ${item.status}${item.error ? ` (${item.error})` : ""}`).join("；") || "任务已入队" : result.message || "运行失败");
+    await response.json();
+    setMessage(response.ok ? "同步任务已启动" : "同步未能启动，请稍后重试");
     setBusy(""); await load();
   }
-  return <><div className="admin-page-head"><div><span className="admin-eyebrow">DATA OPERATIONS</span><h1>数据同步</h1><p>手动运行、计划任务、失败重试和处理记录。</p></div></div>
+  return <><div className="admin-page-head"><div><h1>数据同步</h1><p>查看各项数据的更新情况</p></div></div>
     {message && <p className="admin-success" role="status">{message}</p>}
-    <div className="admin-panel"><h2>数据源</h2><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>数据源</th><th>状态</th><th>间隔</th><th>上次成功</th><th>下次运行</th><th>最近错误</th><th>操作</th></tr></thead><tbody>{sources.map((source) => <tr key={source.id}><td>{source.name_zh}</td><td>{source.enabled ? "已启用" : "未启用"}</td><td>{source.frequency_minutes} 分钟</td><td>{stamp(source.last_success_at)}</td><td>{stamp(source.next_run_at)}</td><td>{source.last_error || "—"}</td><td>{canEdit && <button className="admin-secondary" disabled={Boolean(busy)} onClick={() => change(source, !source.enabled)}>{source.enabled ? "停用" : "启用"}</button>} {canRun && <button className="admin-primary" disabled={Boolean(busy)} onClick={() => run(source.id)}>{busy === source.id ? "运行中…" : "立即运行"}</button>}</td></tr>)}</tbody></table></div></div>
-    <div className="admin-panel"><h2>最近任务</h2><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>时间</th><th>来源</th><th>状态</th><th>次数</th><th>处理数</th><th>耗时</th><th>错误</th></tr></thead><tbody>{jobs.map((job) => <tr key={job.id}><td>{stamp(job.created_at)}</td><td>{job.source_id}</td><td>{job.status}</td><td>{job.attempt}</td><td>{job.processed_count}</td><td>{job.duration_ms === null ? "—" : `${job.duration_ms} ms`}</td><td>{job.error_code || "—"}</td></tr>)}</tbody></table></div></div>
+    <div className="admin-panel"><h2>同步项目</h2><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>项目</th><th>状态</th><th>更新间隔</th><th>最近更新</th><th>下次更新</th><th>操作</th></tr></thead><tbody>{sources.map((source) => <tr key={source.id}><td>{source.name_zh}</td><td><span className={`admin-status ${source.enabled ? "admin-status-qualified" : ""}`}>{source.enabled ? "已启用" : "已停用"}</span></td><td>{source.frequency_minutes} 分钟</td><td>{stamp(source.last_success_at)}</td><td>{stamp(source.next_run_at)}</td><td>{canEdit && <button className="admin-secondary" disabled={Boolean(busy)} onClick={() => change(source, !source.enabled)}>{source.enabled ? "停用" : "启用"}</button>} {canRun && <button className="admin-primary" disabled={Boolean(busy)} onClick={() => run(source.id)}>{busy === source.id ? "运行中…" : "立即更新"}</button>}</td></tr>)}</tbody></table></div></div>
+    <div className="admin-panel"><h2>最近记录</h2><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>时间</th><th>项目</th><th>状态</th><th>处理数量</th><th>耗时</th></tr></thead><tbody>{jobs.map((job) => <tr key={job.id}><td>{stamp(job.created_at)}</td><td>{sources.find((source) => source.id === job.source_id)?.name_zh || "数据更新"}</td><td><span className={`admin-status ${job.status === "success" || job.status === "completed" ? "admin-status-qualified" : ""}`}>{jobLabels[job.status] || "处理中"}</span></td><td>{job.processed_count}</td><td>{job.duration_ms === null ? "—" : `${Math.round(job.duration_ms / 1000)} 秒`}</td></tr>)}</tbody></table></div></div>
   </>;
 }

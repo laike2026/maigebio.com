@@ -15,6 +15,7 @@ import ContentTranslations from "./ContentTranslations";
 import MediaDetails from "./MediaDetails";
 import LeadStatusSelect from "./LeadStatusSelect";
 import NewsRelations from "./NewsRelations";
+import { IconArrowLeft, IconCopy, IconDeviceFloppy, IconExternalLink, IconTrash } from "@tabler/icons-react";
 
 type RecordValue = Record<string, unknown>;
 
@@ -68,7 +69,7 @@ export default function AdminEditor({ module, id, canUpdate, canDelete, canPubli
     finally { setSaving(false); }
   }
   async function remove() {
-    if (!id || !confirm(`确定删除此${module.singular}？此操作会记入审计日志。`)) return;
+    if (!id || !confirm(`确定删除此${module.singular}？`)) return;
     setSaving(true);
     try { const response = await fetch(`/api/admin/${module.key}/${id}`, { method: "DELETE" }); const result = await response.json(); if (!response.ok) throw new Error(result.message || "删除失败"); setDirty(false); router.push(`/admin/${module.key}`); }
     catch (err) { setError(err instanceof Error ? err.message : "删除失败"); setSaving(false); }
@@ -80,16 +81,17 @@ export default function AdminEditor({ module, id, canUpdate, canDelete, canPubli
     catch (err) { setError(err instanceof Error ? err.message : "复制失败"); setSaving(false); }
   }
   if (busy) return <div className="admin-empty">正在加载…</div>;
-  return <><div className="admin-page-head"><div><span className="admin-eyebrow">{module.title.toUpperCase()}</span><h1>{isNew ? `新增${module.singular}` : `${module.singular}详情`}</h1><p><Link href={`/admin/${module.key}`}>← 返回{module.title}</Link>{Boolean(record?.id) && <span>　ID：{String(record?.id)}</span>}</p></div></div>
+  return <><div className="admin-page-head"><div><h1>{isNew ? `新增${module.singular}` : `${module.singular}详情`}</h1><p><Link className="admin-back-link" href={`/admin/${module.key}`}><IconArrowLeft size={16} stroke={1.8} />返回{module.title}</Link></p></div></div>
     {error && <p className="admin-error" role="alert">{error}</p>}{success && <p className="admin-success" role="status">{success}</p>}
-    {module.key === "leads" && record && <div className="admin-panel"><h2>客户提交内容</h2><div className="admin-detail-grid">{["name","company","email","phone","country","product_interest","source_page","utm_source","submitted_at","notification_status"].map((key) => <div key={key}><strong>{key}</strong><span>{String(record[key] || "—")}</span></div>)}</div><h3>留言</h3><p className="admin-message">{String(record.message || "")}</p></div>}
+    <div className={module.key === "leads" ? "admin-lead-workspace" : "admin-editor-workspace"}><div className="admin-editor-support">
+    {module.key === "leads" && record && <div className="admin-panel"><h2>询盘信息</h2><div className="admin-detail-grid">{[["name","联系人"],["company","公司"],["email","邮箱"],["phone","电话"],["country","国家/地区"],["product_interest","咨询产品"],["source_page","来源页面"],["submitted_at","提交时间"]].map(([key, label]) => <div key={key}><strong>{label}</strong><span>{key === "submitted_at" && record[key] ? new Date(String(record[key])).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : String(record[key] || "—")}</span></div>)}</div><div className="admin-lead-message"><h3>客户留言</h3><p className="admin-message">{String(record.message || "—")}</p></div></div>}
     {module.key === "leads" && id && <LeadNotes id={id} editable={canUpdate} />}
     {module.key === "media" && id && <MediaDetails id={id} />}
     {module.key === "products" && id && <ProductRelations id={id} editable={canUpdate} />}
     {module.key === "news" && id && <NewsRelations id={id} editable={canUpdate} />}
     {(module.key === "products" || module.key === "news") && id && record && <ContentTranslations module={module.key} id={id} editable={canUpdate} baseSlug={String(record.slug || "")} />}
     {id && ["products","news"].includes(module.key) && <ContentVersions module={module.key} id={id} editable={canUpdate} onRestored={() => { window.location.reload(); }} />}
-    <div className="admin-panel"><form className="admin-form" onSubmit={submit}>
+    </div><div className="admin-editor-form"><div className="admin-panel"><h2>{module.key === "leads" ? "跟进设置" : isNew ? "填写信息" : "编辑信息"}</h2><form className="admin-form" onSubmit={submit}>
       {module.fields.map((field) => {
         if (!isNew && (field.key === "id" || field.key === "temporary_password")) return null;
         const value = values[field.key] ?? (field.type === "boolean" ? false : "");
@@ -108,7 +110,7 @@ export default function AdminEditor({ module, id, canUpdate, canDelete, canPubli
           {field.help && <small>{field.help}</small>}
         </label>;
       })}
-      <div className="admin-form-actions">{(isNew || canUpdate) && <button className="admin-primary" disabled={saving}>{saving ? "保存中…" : "保存"}</button>}{!isNew && canCreate && ["products","news"].includes(module.key) && <button type="button" className="admin-secondary" onClick={clone} disabled={saving}>复制为草稿</button>}{!isNew && canDelete && <button type="button" className="admin-danger" onClick={remove} disabled={saving}>删除</button>}{!isNew && ["products","news"].includes(module.key) && <a className="admin-secondary" href={`/admin/preview/${module.key}/${id}`} target="_blank">预览内容 ↗</a>}</div>
-    </form></div>
+      <div className="admin-form-actions">{(isNew || canUpdate) && <button className="admin-primary" disabled={saving}><IconDeviceFloppy size={17} stroke={1.8} />{saving ? "保存中…" : "保存"}</button>}{!isNew && canCreate && ["products","news"].includes(module.key) && <button type="button" className="admin-secondary" onClick={clone} disabled={saving}><IconCopy size={17} stroke={1.8} />复制为草稿</button>}{!isNew && canDelete && <button type="button" className="admin-danger" onClick={remove} disabled={saving}><IconTrash size={17} stroke={1.8} />删除</button>}{!isNew && ["products","news"].includes(module.key) && <a className="admin-secondary" href={`/admin/preview/${module.key}/${id}`} target="_blank"><IconExternalLink size={17} stroke={1.8} />预览内容</a>}</div>
+    </form></div></div></div>
   </>;
 }

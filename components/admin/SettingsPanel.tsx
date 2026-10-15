@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 type Settings = Record<string, Record<string, unknown>>;
 const labels: Record<string, string> = { site: "网站基础", retention: "数据保留", upload: "上传限制", tracking: "联系方式与追踪", seo: "SEO" };
+const integrationLabels: Record<string, string> = { ga4: "网站访问统计", searchConsole: "搜索表现", email: "邮件通知", database: "业务数据", storage: "文件存储", scheduler: "定时同步" };
 const fields: Record<string, Record<string, string>> = {
   site: { name: "网站名称", defaultLocale: "默认语言", timezone: "时区", dateFormat: "日期格式", pageSize: "默认每页数量" },
   retention: { analyticsDays: "行为数据保留天数", loginDays: "登录记录保留天数", auditDays: "审计记录保留天数" },
@@ -20,12 +21,12 @@ export default function SettingsPanel({ editable }: { editable: boolean }) {
   async function save(key: string) {
     setBusy(key); setMessage("");
     const response = await fetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value: settings[key] }) });
-    const result = await response.json(); setMessage(response.ok ? `${labels[key]}已保存` : result.code || "保存失败"); setBusy("");
+    setMessage(response.ok ? `${labels[key]}已保存` : "保存失败，请重试"); setBusy("");
     if (response.ok && key === "site") window.location.reload();
   }
-  return <><div className="admin-page-head"><div><span className="admin-eyebrow">SYSTEM CONFIGURATION</span><h1>系统设置</h1><p>管理可公开配置；密钥只在服务器环境变量中保存。</p></div></div>
+  return <><div className="admin-page-head"><div><h1>系统设置</h1></div></div>
     {message && <p className="admin-success" role="status">{message}</p>}
-    <div className="admin-panel"><h2>集成状态</h2><div className="admin-detail-grid">{Object.entries(integrations).map(([key, value]) => <div key={key}><strong>{key}</strong><span>{value ? "已配置" : "未配置"}</span></div>)}</div></div>
+    <div className="admin-settings-grid"><div className="admin-panel admin-settings-status"><h2>服务状态</h2><div className="admin-detail-grid">{Object.entries(integrations).map(([key, value]) => <div key={key}><strong>{integrationLabels[key] || key}</strong><span className={`admin-status ${value ? "admin-status-qualified" : ""}`}>{value ? "正常" : "待连接"}</span></div>)}</div></div>
     {Object.keys(labels).map((key) => <div className="admin-panel" key={key}><h2>{labels[key]}</h2><div className="admin-form">{Object.entries(fields[key]).map(([field, label]) => {
       const value = settings[key]?.[field];
       if (key === "upload" && field === "allowedTypes") return <fieldset className="admin-structured wide" key={field}><legend>{label}</legend><div className="admin-toolbar">{fileTypes.map(([mime, name]) => <label className="admin-inline-check" key={mime}><input type="checkbox" checked={Array.isArray(value) && value.includes(mime)} disabled={!editable} onChange={(event) => set(key, field, event.target.checked ? [...(Array.isArray(value) ? value : []), mime] : (Array.isArray(value) ? value : []).filter((item) => item !== mime))} />{name}</label>)}</div></fieldset>;
@@ -41,6 +42,6 @@ export default function SettingsPanel({ editable }: { editable: boolean }) {
         if (Array.isArray(value)) { try { next = JSON.parse(text); } catch { next = text; } }
         set(key, field, next);
       }} /></label>;
-    })}</div>{editable && <button className="admin-primary" disabled={Boolean(busy)} onClick={() => save(key)}>{busy === key ? "保存中…" : `保存${labels[key]}`}</button>}</div>)}
+    })}</div>{editable && <button className="admin-primary" disabled={Boolean(busy)} onClick={() => save(key)}>{busy === key ? "保存中…" : `保存${labels[key]}`}</button>}</div>)}</div>
   </>;
 }

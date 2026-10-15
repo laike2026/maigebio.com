@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 
 type Item = { id: string; label: string };
 type RelationKind = "categories" | "media" | "related";
-const sections: { key: RelationKind; label: string; lookup: string; hint: string }[] = [
-  { key: "categories", label: "更多所属分类", lookup: "categories", hint: "主分类请在基本资料中设置。" },
-  { key: "media", label: "产品图片与下载文件", lookup: "media", hint: "先上传到媒体库，再关联图片、说明书或 PDF 目录。" },
-  { key: "related", label: "相关产品", lookup: "products", hint: "选择将在产品详情中推荐的其他产品。" },
+const sections: { key: RelationKind; label: string; lookup: string }[] = [
+  { key: "categories", label: "更多所属分类", lookup: "categories" },
+  { key: "media", label: "产品图片与下载文件", lookup: "media" },
+  { key: "related", label: "相关产品", lookup: "products" },
 ];
 
 export default function ProductRelations({ id, editable }: { id: string; editable: boolean }) {
@@ -31,5 +31,5 @@ export default function ProductRelations({ id, editable }: { id: string; editabl
     else setMessage(result.message || "关联保存失败");
     setBusy("");
   }
-  return <div className="admin-panel"><h2>产品关联内容</h2>{message && <p role="status">{message}</p>}{sections.map(({ key, label, hint }) => <div className="admin-relation-section" key={key}><h3>{label}</h3><p>{hint}</p><div className="admin-relation-chips">{selected[key].map((item) => <span key={item.id}>{item.label}{editable && <button type="button" aria-label={`移除 ${item.label}`} disabled={Boolean(busy)} onClick={() => save(key, selected[key].filter((entry) => entry.id !== item.id))}>×</button>}</span>)}{selected[key].length === 0 && <em>暂无关联内容</em>}</div>{editable && <><input aria-label={`搜索${label}`} placeholder={`搜索${label}…`} value={search[key]} onChange={(event) => setSearch((old) => ({ ...old, [key]: event.target.value }))} /><div className="admin-relation-search">{results[key].filter((item) => item.id !== id && !selected[key].some((entry) => entry.id === item.id)).map((item) => <button type="button" className="admin-secondary" key={item.id} disabled={Boolean(busy)} onClick={() => { void save(key, [...selected[key], item]); setSearch((old) => ({ ...old, [key]: "" })); }}>{item.label} ＋</button>)}</div></>}</div>)}</div>;
+  return <div className="admin-panel"><h2>产品关联内容</h2>{message && <p role="status">{message}</p>}{sections.map(({ key, label }) => <div className="admin-relation-section" key={key}><h3>{label}</h3><div className="admin-relation-chips">{selected[key].map((item) => <span key={item.id}>{item.label}{editable && <button type="button" aria-label={`移除 ${item.label}`} disabled={Boolean(busy)} onClick={() => save(key, selected[key].filter((entry) => entry.id !== item.id))}>×</button>}</span>)}{selected[key].length === 0 && <em>暂无关联内容</em>}</div>{editable && <><input aria-label={`搜索${label}`} placeholder={`搜索${label}…`} value={search[key]} onChange={(event) => setSearch((old) => ({ ...old, [key]: event.target.value }))} /><div className="admin-relation-search">{results[key].filter((item) => item.id !== id && !selected[key].some((entry) => entry.id === item.id)).map((item) => <button type="button" className="admin-secondary" key={item.id} disabled={Boolean(busy)} onClick={() => { void save(key, [...selected[key], item]); setSearch((old) => ({ ...old, [key]: "" })); }}>{item.label} ＋</button>)}</div></>}</div>)}</div>;
 }
