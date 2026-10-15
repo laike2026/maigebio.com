@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type FocusEvent } from "re
 import { getCopy } from "@/lib/i18n";
 import { href, type Locale } from "@/lib/site";
 import Link from "next/link";
-import { trackEvent } from "@/lib/tracking";
+import { trackEvent, trackingAllowed } from "@/lib/tracking";
 
 export default function InquiryForm({ locale, initialProduct = "", productName = "" }: { locale: Locale; initialProduct?: string; productName?: string }) {
   const c = getCopy(locale);
@@ -19,7 +19,7 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
     const form = formRef.current;
     if (!form) return;
     const report = () => {
-      if (viewed.current || localStorage.getItem("maige-analytics-choice") !== "accepted") return;
+      if (viewed.current || !trackingAllowed()) return;
       const rect = form.getBoundingClientRect();
       if (rect.top < window.innerHeight && rect.bottom > 0) { viewed.current = true; trackEvent("form_view", { formId, productSlug: initialProduct ? initialProduct.toLowerCase().replace(/\s+/g, "-") : "" }); }
     };
@@ -30,7 +30,7 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
   }, [formId, initialProduct]);
 
   function focus(event: FocusEvent<HTMLFormElement>) {
-    if (!started.current && event.target instanceof HTMLElement && event.target.closest(".honeypot") === null) {
+    if (trackingAllowed() && !started.current && event.target instanceof HTMLElement && event.target.closest(".honeypot") === null) {
       started.current = true;
       trackEvent("form_start", { formId });
     }
@@ -40,7 +40,7 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
     const allowed = ["name", "company", "email", "country", "product", "message", "consent", "phone"];
-    if (!allowed.includes(target.name) || completedFields.current.has(target.name)) return;
+    if (!trackingAllowed() || !allowed.includes(target.name) || completedFields.current.has(target.name)) return;
     const complete = target instanceof HTMLInputElement && target.type === "checkbox" ? target.checked : target.value.trim() !== "" && target.checkValidity();
     if (complete) { completedFields.current.add(target.name); trackEvent("form_field_complete", { formId, fieldName: target.name }); }
   }

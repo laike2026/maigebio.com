@@ -3,8 +3,12 @@ export type TrackName = "contact_address_click" | "contact_whatsapp_click" | "fo
 const choiceKey = "maige-analytics-choice";
 const sessionKey = "maige-analytics-session";
 
+export function trackingAllowed() {
+  return typeof window !== "undefined" && !document.querySelector("[data-maige-internal-session]") && localStorage.getItem(choiceKey) === "accepted";
+}
+
 export function trackEvent(eventName: TrackName, details: { placement?: string; formId?: string; productSlug?: string; fieldName?: string } = {}) {
-  if (typeof window === "undefined" || document.querySelector("[data-maige-internal-session]") || localStorage.getItem(choiceKey) !== "accepted") return;
+  if (!trackingAllowed()) return;
   let sessionId = sessionStorage.getItem(sessionKey);
   if (!sessionId) { sessionId = crypto.randomUUID(); sessionStorage.setItem(sessionKey, sessionId); }
   const pagePath = window.location.pathname;
