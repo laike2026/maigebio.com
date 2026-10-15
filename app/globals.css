@@ -34,3 +34,20 @@ html[dir="rtl"] .hero-art{inset-inline-start:0;inset-inline-end:auto;transform:s
 .technical-art span{display:grid;place-items:center;width:90px;height:90px;border:2px solid #99d7f2;border-radius:50%;font-size:3.5rem;box-shadow:0 0 0 16px rgba(161,218,241,.17)}
 .analytics-consent{position:fixed;z-index:220;inset-inline:18px;bottom:18px;width:min(680px,calc(100% - 36px));margin-inline:auto;padding:18px 20px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 40px rgba(4,32,79,.22);display:flex;align-items:center;gap:20px}.analytics-consent p{margin:0;flex:1;font-size:.9rem}.analytics-consent>div{display:flex;align-items:center;gap:8px}.analytics-consent button{border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--navy);padding:10px 14px;font-size:.8rem;font-weight:700;white-space:nowrap}.analytics-consent button.button-blue{background:var(--blue);border-color:var(--blue);color:#fff}.analytics-settings{position:fixed;z-index:115;inset-inline-start:12px;bottom:12px;padding:5px 9px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--muted);font-size:.7rem;box-shadow:var(--shadow)}
 @media(max-width:650px){.analytics-consent{display:block;padding:15px;bottom:12px}.analytics-consent p{font-size:.8rem}.analytics-consent>div{justify-content:flex-end;margin-top:10px}.analytics-consent button{font-size:.74rem;padding:9px 11px}}
+
+/* Navigation menus */
+.nav-trigger,.language-switcher>button{border:0;background:none;color:inherit;font:inherit;padding:0;cursor:pointer;white-space:nowrap}
+.nav-trigger{display:inline-flex;align-items:center;gap:4px;font-weight:inherit}
+.nav-trigger:hover,.nav-trigger[aria-expanded="true"]{color:var(--blue)}
+.nav-chevron,.language-switcher .chevron{display:inline-block;transition:transform .16s ease}
+.nav-trigger[aria-expanded="true"] .nav-chevron,.language-switcher>button[aria-expanded="true"] .chevron{transform:rotate(180deg)}
+.nav-menu{z-index:3}
+.nav-menu:before{display:none}
+.nav-menu a:focus-visible,.language-options a:focus-visible{background:#edf6ff;color:var(--blue)}
+.mobile-menu-toggle{border:0;padding:4px;background:none;color:var(--navy);font-size:1.65rem;line-height:1;cursor:pointer}
+@media(max-width:900px){
+  .mobile-menu>nav{z-index:5}
+  .mobile-menu nav>.nav-drop>.nav-trigger{display:flex;justify-content:space-between;width:100%;padding:8px;text-align:start;font-size:.9rem}
+  .mobile-menu .nav-menu a{display:block}
+}
+@media(prefers-reduced-motion:reduce){.nav-chevron,.language-switcher .chevron{transition:none}}
