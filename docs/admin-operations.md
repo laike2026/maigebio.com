@@ -8,18 +8,16 @@ For Docker, set `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` an
 
 ## First administrator
 
-Run `ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm db:create-admin` before starting PGlite. The password must have at least 14 characters; the first login forces a change. The script never prints the password. For PostgreSQL, set `DATABASE_URL_UNPOOLED` or `DATABASE_URL` to a direct connection before invoking the same command. Do not put bootstrap credentials in Git or long-lived Vercel variables.
+Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm db:create-admin` before starting PGlite. The password must normally have at least 14 characters. For the approved 12-character one-time bootstrap password, set `ADMIN_ALLOW_SHORT_INITIAL=YES` for that command only. The first login forces a change to a new password of at least 14 characters. The script never prints the password. For PostgreSQL, set `DATABASE_URL_UNPOOLED` or `DATABASE_URL` to a direct connection before invoking the same command. Do not put bootstrap credentials in Git or long-lived Vercel variables.
 
 ## Vercel deployment sequence after final acceptance
 
-1. In the **laike2026** Vercel project `maigebio-com`, provision PostgreSQL and private S3-compatible object storage. Keep storage credentials and connection strings in sensitive Production variables. The project must never be connected to `shagaofeng-rgb`.
+1. In the **laike2026** Vercel project `maigebio-com`, provision PostgreSQL and private Vercel Blob storage. Keep storage credentials and connection strings in sensitive Production variables. The project must never be connected to `shagaofeng-rgb`.
 2. Make a database backup or verified empty baseline. Apply all SQL migrations with `DATABASE_URL_UNPOOLED=... pnpm db:migrate`; create the first administrator with `pnpm db:create-admin`.
-3. Add `DATABASE_URL`, S3 variables, `CRON_SECRET`, `IP_HASH_SALT`, `ANALYTICS_HASH_SALT`, GA4 service account variables, Resend variables, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_INDEXABLE`, and the GA4 measurement ID from `.env.example`. `GOOGLE_SERVICE_ACCOUNT_JSON` and S3/Resend secrets must be Production-only and never use the `NEXT_PUBLIC_` prefix.
+3. Add `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, `IP_HASH_SALT`, `ANALYTICS_HASH_SALT`, GA4 service account variables, Resend variables, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_INDEXABLE`, and the GA4 measurement ID from `.env.example`. `GOOGLE_SERVICE_ACCOUNT_JSON` and Blob/Resend secrets must be Production-only and never use the `NEXT_PUBLIC_` prefix. S3 variables are an alternative for Docker or other hosts.
 4. Verify the Resend sending domain and `info@maigebio.com` recipient. Give the service account viewer access to GA4 property `558913614`. Search Console requires separate site permission and API enablement; its source should stay off until configured.
-5. Deploy a preview, verify `/api/health`, admin login, media upload, published content API, enquiry persistence/email, tracking consent, sitemap and rollback. Promote to Production only after the user’s final sign-off.
+5. Verify `/api/health`, admin login, media upload, published content API, enquiry persistence/email, tracking consent, sitemap and rollback on Production. A Preview environment needs its own database branch and media store; it must never use Production credentials.
 6. Configure a scheduler outside the browser to call `GET https://maigebio.com/api/cron` with `Authorization: Bearer <CRON_SECRET>` every five minutes. A Docker worker is provided; Vercel-only operation requires an external scheduler or an appropriate Vercel Cron plan. Verify successful jobs on `/admin/sync`.
-
-The production database and object store have not been provisioned yet. The current live website remains on the existing `main` deployment.
 
 ## Backup and recovery
 
@@ -36,4 +34,4 @@ The production database and object store have not been provisioned yet. The curr
 - Backend date displays and new tracking day buckets use the timezone in Settings. Historical day buckets are not rewritten after a timezone change; select the intended timezone before collecting production traffic.
 - Export jobs store CSV chunks in PostgreSQL so worker restarts do not lose a large download. Daily retention cleanup removes completed export jobs and their chunks after 30 days; lead export downloads are audited.
 - Retention cleanup uses the settings for analytics events, login attempts and audit logs. It does not automatically delete customer enquiries. Handle an authorised privacy request through a reviewed export/delete procedure for the specific lead.
-- The media bucket must allow browser `PUT` to its presigned URL origin and remain private for arbitrary object reads; `/api/media/:id` serves approved assets. The included MinIO CORS file configures local Docker.
+- The private Blob store supports browser `PUT` to short-lived presigned URLs; `/api/media/:id` serves approved assets. The included MinIO CORS file configures the alternative Docker S3 path.

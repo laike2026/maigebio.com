@@ -57,6 +57,7 @@ function parseField(field: Field, value: unknown): unknown {
   if (field.type === "select" && field.options && !field.options.some((option) => option.value === text)) throw new AdminError("INVALID_OPTION", `${field.label}选项无效`);
   if (field.key === "slug" && !slugPattern.test(text)) throw new AdminError("INVALID_SLUG", "Slug 只能包含小写字母、数字和连字符");
   if (field.key === "id" && !slugPattern.test(text)) throw new AdminError("INVALID_ID", "ID 只能包含小写字母、数字和连字符");
+  if (field.key === "username" && !/^[a-z][a-z0-9._-]{2,31}$/.test(text)) throw new AdminError("INVALID_USERNAME", "账号名格式无效");
   if ((field.key === "source_path" || field.key === "target_path") && !pathPattern.test(text)) throw new AdminError("INVALID_PATH", "路径必须是站内绝对路径");
   if (field.type === "html") return sanitizeHtml(text, {
     allowedTags: ["p", "br", "h2", "h3", "h4", "strong", "em", "ul", "ol", "li", "blockquote", "a", "img", "table", "thead", "tbody", "tr", "th", "td", "code", "pre", "hr", "figure", "figcaption", "iframe"],
@@ -87,7 +88,7 @@ function parseInput(module: ModuleDefinition, raw: unknown, create: boolean) {
 }
 
 function projection(module: ModuleDefinition, detail = false) {
-  if (module.key === "users") return detail ? "id,email,display_name,role_id,active,must_change_password,locked_until,last_login_at,last_login_ip,created_at,updated_at,deleted_at" : "id,email,display_name,role_id,active,last_login_at,created_at";
+  if (module.key === "users") return detail ? "id,username,email,display_name,role_id,active,must_change_password,locked_until,last_login_at,last_login_ip,created_at,updated_at,deleted_at" : "id,username,email,display_name,role_id,active,last_login_at,created_at";
   if (module.key === "leads" && !detail) return "id,name,company,email,country,product_interest,status_id,owner_id,submitted_at,notification_status";
   return detail ? "*" : ["id", ...module.columns].join(",");
 }
@@ -192,6 +193,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
     values.password_hash = await hashPassword(password);
     delete values.temporary_password;
     values.email = String(values.email).toLowerCase();
+    values.username = String(values.username).toLowerCase();
   }
   if (name === "sync" && values.frequency_minutes !== undefined && Number(values.frequency_minutes) < 5) throw new AdminError("INVALID_FREQUENCY", "同步间隔至少 5 分钟");
   if (name === "products" || name === "news") {
@@ -208,7 +210,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
     revalidateContent(name, values.slug);
     return getRecord(name, id);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new AdminError("DUPLICATE", "编号、邮箱或 Slug 已存在", 409);
+    if (isUniqueViolation(error)) throw new AdminError("DUPLICATE", "编号、账号、邮箱或 Slug 已存在", 409);
     throw error;
   }
 }
@@ -226,6 +228,7 @@ export async function updateRecord(name: string, id: string, raw: unknown, user:
   if (name === "users") {
     delete values.temporary_password;
     if (values.email) values.email = String(values.email).toLowerCase();
+    if (values.username) values.username = String(values.username).toLowerCase();
   }
   if (name === "products" || name === "news") {
     if (values.status === "published" && old.status !== "published") values.published_at = new Date().toISOString();
@@ -251,7 +254,7 @@ export async function updateRecord(name: string, id: string, raw: unknown, user:
     revalidateContent(name, values.slug);
     return getRecord(name, id);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new AdminError("DUPLICATE", "编号、邮箱或 Slug 已存在", 409);
+    if (isUniqueViolation(error)) throw new AdminError("DUPLICATE", "编号、账号、邮箱或 Slug 已存在", 409);
     throw error;
   }
 }

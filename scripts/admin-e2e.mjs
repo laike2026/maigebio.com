@@ -9,9 +9,9 @@ const root = process.cwd();
 const data = join(root, ".data", `admin-e2e-${randomUUID()}`);
 const port = 3127;
 const base = `http://127.0.0.1:${port}`;
-const initialPassword = randomBytes(24).toString("base64url");
+const initialPassword = randomBytes(9).toString("base64url");
 const password = randomBytes(24).toString("base64url");
-const env = { ...process.env, MAIGE_DATA_DIR: data, ADMIN_EMAIL: "qa-admin@maigebio.local", ADMIN_PASSWORD: initialPassword, ADMIN_NAME: "QA Admin" };
+const env = { ...process.env, MAIGE_DATA_DIR: data, ADMIN_EMAIL: "qa-admin@maigebio.local", ADMIN_PASSWORD: initialPassword, ADMIN_ALLOW_SHORT_INITIAL: "YES", ADMIN_NAME: "QA Admin" };
 
 function command(path) {
   const run = spawnSync(process.execPath, [path], { cwd: root, env, encoding: "utf8" });
@@ -48,11 +48,16 @@ async function request(path, method = "GET", body, auth = true) {
 try {
   await waitReady();
   assert.equal((await request("/api/admin/products", "GET", undefined, false)).status, 401);
-  assert.equal((await request("/api/admin/auth/login", "POST", { email: "qa-admin@maigebio.local", password: "wrong" }, false)).status, 401);
-  assert.equal((await request("/api/admin/auth/login", "POST", { email: "qa-admin@maigebio.local", password: initialPassword }, false)).status, 200);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "admin", password: "wrong" }, false)).status, 401);
+  const firstLogin = await request("/api/admin/auth/login", "POST", { identifier: "admin", password: initialPassword }, false);
+  assert.equal(firstLogin.status, 200);
+  assert.equal(firstLogin.value.redirect, "/admin/change-password");
   assert.equal((await request("/api/admin/products")).status, 403, "initial password must be changed");
   assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: password })).status, 200);
-  assert.equal((await request("/api/admin/auth/login", "POST", { email: "qa-admin@maigebio.local", password }, false)).status, 200);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin@maigebio.local", password }, false)).status, 200);
+  assert.equal((await request("/api/admin/auth/account", "PATCH", { username: "qa-admin", currentPassword: password })).status, 200);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin", password }, false)).status, 200);
+  assert.equal((await request("/api/admin/auth/forgot-password", "POST", { identifier: "qa-admin" }, false)).status, 200);
   const preferences = (await request("/api/admin/settings")).value.settings.site;
   assert.equal((await request("/api/admin/settings", "PUT", { key: "site", value: { ...preferences, timezone: "UTC", dateFormat: "dd/MM/yyyy", pageSize: 50 } })).status, 200);
   assert.equal((await request("/api/admin/analytics?preset=today")).status, 200);
@@ -137,7 +142,7 @@ try {
   assert.equal(exportStatus.value.status, "succeeded", JSON.stringify(exportStatus.value));
   const exportedCsv = await request(exportStatus.value.download);
   assert.equal(exportedCsv.status, 200); assert.match(exportedCsv.value, /QA/);
-  const readonly = await request("/api/admin/users", "POST", { email: "qa-readonly@maigebio.local", display_name: "QA Readonly", role_id: "readonly", temporary_password: randomBytes(24).toString("base64url") });
+  const readonly = await request("/api/admin/users", "POST", { username: "qa-readonly", email: "qa-readonly@maigebio.local", display_name: "QA Readonly", role_id: "readonly", temporary_password: randomBytes(24).toString("base64url") });
   assert.equal(readonly.status, 201, JSON.stringify(readonly.value));
   assert.equal((await request("/api/admin/auth/logout", "POST", {})).status, 200);
   assert.equal((await request("/api/admin/products")).status, 401);

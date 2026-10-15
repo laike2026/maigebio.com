@@ -10,6 +10,7 @@ const SESSION_HOURS = 12;
 
 export type AdminUser = {
   id: string;
+  username: string | null;
   email: string;
   display_name: string;
   role_id: string;
@@ -59,7 +60,7 @@ export async function getSession(): Promise<AdminUser | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const result = await query<AdminUser>(
-    `SELECT u.id,u.email,u.display_name,u.role_id,u.must_change_password,r.permissions
+    `SELECT u.id,u.username,u.email,u.display_name,u.role_id,u.must_change_password,r.permissions
      FROM sessions s JOIN users u ON u.id=s.user_id JOIN roles r ON r.id=u.role_id
      WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now()
        AND u.active=true AND u.deleted_at IS NULL LIMIT 1`, [tokenHash(token)]);
@@ -90,5 +91,5 @@ export async function audit(action: string, module: string, userId: string | nul
 }
 
 export function publicUser(user: AdminUser) {
-  return { id: user.id, email: user.email, displayName: user.display_name, role: user.role_id, permissions: user.permissions, mustChangePassword: user.must_change_password };
+  return { id: user.id, username: user.username, email: user.email, displayName: user.display_name, role: user.role_id, permissions: user.permissions, mustChangePassword: user.must_change_password };
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { can, getSession, requestOriginAllowed } from "@/lib/admin/auth";
-import { s3Configured, signStagedMedia } from "@/lib/media-storage";
+import { directUploadConfigured, signStagedMedia } from "@/lib/media-storage";
 import { allowAdminRate } from "@/lib/admin/rate-limit";
 
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!can(user, "media", "create")) return Response.json({ code: "FORBIDDEN" }, { status: 403 });
   if (!(await requestOriginAllowed(request))) return Response.json({ code: "BAD_ORIGIN" }, { status: 403 });
   if (!(await allowAdminRate("media-upload", user.id, 30))) return Response.json({ code: "RATE_LIMIT", message: "上传过于频繁，请稍后重试" }, { status: 429 });
-  if (!s3Configured()) return Response.json({ code: "DIRECT_UPLOAD_UNAVAILABLE" }, { status: 409 });
+  if (!directUploadConfigured()) return Response.json({ code: "DIRECT_UPLOAD_UNAVAILABLE" }, { status: 409 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ code: "INVALID_FILE", message: "文件格式或大小不符合要求" }, { status: 400 });
   const ext = parsed.data.name.split(".").pop()!.toLowerCase();

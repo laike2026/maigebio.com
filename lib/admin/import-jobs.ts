@@ -41,7 +41,7 @@ export async function runImportJobs(maxRows = 300, onlyId?: string) {
   const row = claimed.rows[0]; if (!row) return null;
   const owner = await query<Job>(`SELECT u.id AS user_id,u.email,u.display_name,u.role_id,u.must_change_password,r.permissions FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=$1 AND u.active=true`, [row.created_by]);
   if (!owner.rows[0]) { await query("UPDATE import_jobs SET status='failed',finished_at=now(),error_report=$2 WHERE id=$1", [row.id, JSON.stringify([{ row: 0, message: "创建人账户已停用" }])]); return { id: row.id, status: "failed", processed: 0 }; }
-  const user: AdminUser = { id: owner.rows[0].user_id, email: owner.rows[0].email, display_name: owner.rows[0].display_name, role_id: owner.rows[0].role_id, must_change_password: owner.rows[0].must_change_password, permissions: owner.rows[0].permissions };
+  const user: AdminUser = { id: owner.rows[0].user_id, username: null, email: owner.rows[0].email, display_name: owner.rows[0].display_name, role_id: owner.rows[0].role_id, must_change_password: owner.rows[0].must_change_password, permissions: owner.rows[0].permissions };
   if (!can(user, row.module, "create")) { await query("UPDATE import_jobs SET status='failed',finished_at=now(),error_report=$2 WHERE id=$1", [row.id, JSON.stringify([{ row: 0, message: "创建人已失去导入权限" }])]); return { id: row.id, status: "failed", processed: 0 }; }
   try {
     const rows = await readImportRows(row.filename, Buffer.from(await getMedia(row.source_key)), row.module);

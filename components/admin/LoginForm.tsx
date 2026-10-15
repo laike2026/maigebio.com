@@ -12,7 +12,7 @@ export default function LoginForm() {
     setBusy(true); setError("");
     const form = new FormData(event.currentTarget);
     try {
-      const response = await fetch("/api/admin/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.get("email"), password: form.get("password"), remember: form.get("remember") === "on" }) });
+      const response = await fetch("/api/admin/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier: form.get("identifier"), password: form.get("password"), remember: form.get("remember") === "on" }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "登录失败");
       window.location.assign(result.redirect || "/admin");
@@ -20,7 +20,7 @@ export default function LoginForm() {
   }
   return <form className="admin-login-card" onSubmit={submit}>
     <span className="admin-eyebrow">MAIGE CONTROL CENTER</span><h1>登录管理后台</h1><p>请使用由管理员创建的账户。</p>
-    <label>账号邮箱<input name="email" type="email" required autoComplete="username" placeholder="name@maigebio.com" /></label>
+    <label>账号或邮箱<input name="identifier" type="text" required autoComplete="username" placeholder="账号名或 name@maigebio.com" /></label>
     <label>密码<span className="admin-password"><input name="password" type={show ? "text" : "password"} required autoComplete="current-password" /><button type="button" onClick={() => setShow(!show)} aria-label={show ? "隐藏密码" : "显示密码"}>{show ? "隐藏" : "显示"}</button></span></label>
     <div className="admin-login-row"><label><input name="remember" type="checkbox" /> 记住登录状态</label><a href="/admin/forgot-password">忘记密码？</a></div>
     {error && <p className="admin-error" role="alert">{error}</p>}

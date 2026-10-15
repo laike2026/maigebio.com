@@ -1,12 +1,12 @@
 # MAIGE Bio website and Chinese management backend
 
-This repository contains the MAIGE multilingual B2B website (`/en`, `/ar`, `/ru`, `/es`) and a Chinese management backend at `/admin`. The target repository is [`laike2026/maigebio.com`](https://github.com/laike2026/maigebio.com). The backend is being reviewed on the local `codex/admin-backend` branch; no production release is implied by this README.
+This repository contains the MAIGE multilingual B2B website (`/en`, `/ar`, `/ru`, `/es`) and a Chinese management backend at `/admin`. The target repository is [`laike2026/maigebio.com`](https://github.com/laike2026/maigebio.com).
 
 ## Architecture
 
 - Next.js App Router, React and TypeScript serve the website, admin UI and API.
 - PostgreSQL stores users, sessions, content, leads, tracking aggregates, SEO data, jobs and audit records. Local development uses **persistent PGlite** in `.data/postgres`; production requires `DATABASE_URL` for PostgreSQL.
-- Media is kept in `.data/media` locally and S3-compatible object storage in production. Images are converted to WebP and thumbnails are generated.
+- Media is kept in `.data/media` locally, in private Vercel Blob storage on Vercel, or in S3-compatible storage for Docker. Images are converted to WebP and thumbnails are generated.
 - A worker calls `/api/cron` to run scheduled publishing, email retry, GA4/Search Console synchronization, SEO checks, retention cleanup, import jobs and export jobs. Its token is `CRON_SECRET`.
 - GA4 reporting uses the server-side service account. Browser events only run after the visitor accepts analytics cookies. Address/WhatsApp clicks and the form funnel are shown separately from verified database enquiries.
 - English is the default editorial language; products and articles have independent Arabic, Russian and Spanish versions. Incomplete translations fall back to English.
@@ -18,7 +18,7 @@ Use Node.js 22+ and pnpm 11. The local database is created automatically, but mi
 ```bash
 pnpm install
 pnpm db:migrate
-ADMIN_EMAIL='admin@example.com' ADMIN_NAME='MAIGE Admin' ADMIN_PASSWORD='a-unique-password-at-least-14-chars' pnpm db:create-admin
+ADMIN_USERNAME='admin' ADMIN_EMAIL='admin@example.com' ADMIN_NAME='MAIGE Admin' ADMIN_PASSWORD='a-unique-password-at-least-14-chars' pnpm db:create-admin
 pnpm dev --port 3000
 ```
 
@@ -39,9 +39,9 @@ The site runs at `http://localhost:3000`, the MinIO console at `http://localhost
 
 ## Production prerequisites
 
-Connect a PostgreSQL database and S3-compatible bucket **to the laike2026 Vercel project only** before deploying this branch. Apply all migrations using a direct database URL. Configure environment variables from [.env.example](.env.example); provide server secrets only in sensitive Production variables. The existing Resend integration should continue to send enquiry notifications to `info@maigebio.com`. Verify the sender domain with Resend.
+Connect a PostgreSQL database and private Vercel Blob store **to the laike2026 Vercel project only** before deploying this branch. Apply all migrations using a direct database URL. Configure environment variables from [.env.example](.env.example); provide server secrets only in sensitive Production variables. The existing Resend integration should continue to send enquiry notifications to `info@maigebio.com`. Verify the sender domain with Resend.
 
-`NEXT_PUBLIC_SITE_URL=https://maigebio.com`, `NEXT_PUBLIC_INDEXABLE=true`, and the SEO settings together control search indexing. Production media storage is mandatory. Missing database or storage configuration must not be treated as a successful deployment. The backend branch should be promoted only after local acceptance, production resource provisioning, migration, backup and a staging smoke test. The current live `main` deployment is deliberately untouched.
+`NEXT_PUBLIC_SITE_URL=https://maigebio.com`, `NEXT_PUBLIC_INDEXABLE=true`, and the SEO settings together control search indexing. Production media storage is mandatory. Missing database or storage configuration must not be treated as a successful deployment.
 
 See [operations](docs/admin-operations.md) for migration, scheduler, backup/restore and rollout steps, and [API reference](docs/admin-api.md) for routes and permissions.
 
@@ -76,4 +76,4 @@ If a local server is running on another port, set `TEST_BASE_URL`, for example `
 
 ## Known limits before production sign-off
 
-The Vercel PostgreSQL and S3 resources have not yet been provisioned for this backend branch; the live site is unchanged. Docker and S3 direct-upload paths cannot be exercised in the current machine without those services. Search Console access has not been granted to the service account. Import files above 4 MB require S3 direct upload. The address map URL is intentionally blank pending verified address details. See [PLAN.md](PLAN.md) for current completion and remaining acceptance items.
+Docker and S3 direct-upload paths cannot be exercised on this machine without those services. Search Console access has not been granted to the service account. Import files above 4 MB require private Blob or S3 direct upload. The address map URL is intentionally blank pending verified address details. See [PLAN.md](PLAN.md) for current completion and remaining acceptance items.
