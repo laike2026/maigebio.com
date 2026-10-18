@@ -9,9 +9,9 @@ const root = process.cwd();
 const data = join(root, ".data", `admin-e2e-${randomUUID()}`);
 const port = 3127;
 const base = `http://127.0.0.1:${port}`;
-const initialPassword = randomBytes(9).toString("base64url");
-const password = randomBytes(24).toString("base64url");
-const env = { ...process.env, MAIGE_DATA_DIR: data, ADMIN_EMAIL: "qa-admin@maigebio.local", ADMIN_PASSWORD: initialPassword, ADMIN_ALLOW_SHORT_INITIAL: "YES", ADMIN_NAME: "QA Admin" };
+const initialPassword = randomBytes(6).toString("base64url");
+const password = randomBytes(6).toString("base64url");
+const env = { ...process.env, MAIGE_DATA_DIR: data, ADMIN_EMAIL: "qa-admin@maigebio.local", ADMIN_PASSWORD: initialPassword, ADMIN_NAME: "QA Admin" };
 
 function command(path) {
   const run = spawnSync(process.execPath, [path], { cwd: root, env, encoding: "utf8" });
@@ -53,6 +53,7 @@ try {
   assert.equal(firstLogin.status, 200);
   assert.equal(firstLogin.value.redirect, "/admin/change-password");
   assert.equal((await request("/api/admin/products")).status, 403, "initial password must be changed");
+  assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: "1234567" })).status, 400);
   assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: password })).status, 200);
   assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin@maigebio.local", password }, false)).status, 200);
   assert.equal((await request("/api/admin/auth/account", "PATCH", { username: "qa-admin", currentPassword: password })).status, 200);
@@ -155,7 +156,9 @@ try {
   assert.equal(exportStatus.value.status, "succeeded", JSON.stringify(exportStatus.value));
   const exportedCsv = await request(exportStatus.value.download);
   assert.equal(exportedCsv.status, 200); assert.match(exportedCsv.value, /QA/);
-  const readonly = await request("/api/admin/users", "POST", { username: "qa-readonly", email: "qa-readonly@maigebio.local", display_name: "QA Readonly", role_id: "readonly", temporary_password: randomBytes(24).toString("base64url") });
+  const readonlyInput = { username: "qa-readonly", email: "qa-readonly@maigebio.local", display_name: "QA Readonly", role_id: "readonly" };
+  assert.equal((await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: "1234567" })).status, 400);
+  const readonly = await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: randomBytes(6).toString("base64url") });
   assert.equal(readonly.status, 201, JSON.stringify(readonly.value));
   assert.equal((await request("/api/admin/auth/logout", "POST", {})).status, 200);
   assert.equal((await request("/api/admin/products")).status, 401);

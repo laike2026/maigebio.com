@@ -18,7 +18,7 @@ Use Node.js 22+ and pnpm 11. The local database is created automatically, but mi
 ```bash
 pnpm install
 pnpm db:migrate
-ADMIN_USERNAME='admin' ADMIN_EMAIL='admin@example.com' ADMIN_NAME='MAIGE Admin' ADMIN_PASSWORD='a-unique-password-at-least-14-chars' pnpm db:create-admin
+ADMIN_USERNAME='admin' ADMIN_EMAIL='admin@example.com' ADMIN_NAME='MAIGE Admin' ADMIN_PASSWORD='a-unique-password-at-least-8-chars' pnpm db:create-admin
 pnpm dev --port 3000
 ```
 
@@ -32,7 +32,7 @@ Docker Compose includes PostgreSQL, MinIO, migration, app and worker services. P
 
 ```bash
 docker compose up --build -d
-docker compose run --rm -e ADMIN_EMAIL=admin@example.com -e ADMIN_NAME='MAIGE Admin' -e ADMIN_PASSWORD='a-unique-password-at-least-14-chars' migrate pnpm db:create-admin
+docker compose run --rm -e ADMIN_EMAIL=admin@example.com -e ADMIN_NAME='MAIGE Admin' -e ADMIN_PASSWORD='a-unique-password-at-least-8-chars' migrate pnpm db:create-admin
 ```
 
 The site runs at `http://localhost:3000`, the MinIO console at `http://localhost:9001`. The `pgdata` and `miniodata` volumes preserve data across container recreation. Docker is not installed on the current development machine, so this Compose path is documented but not yet container-tested.

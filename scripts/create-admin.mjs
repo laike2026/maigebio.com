@@ -9,7 +9,7 @@ const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 const password = process.env.ADMIN_PASSWORD;
 const name = process.env.ADMIN_NAME?.trim() || "MAIGE 管理员";
 const username = process.env.ADMIN_USERNAME?.trim().toLowerCase() || "admin";
-const minLength = process.env.ADMIN_ALLOW_SHORT_INITIAL === "YES" ? 12 : 14;
+const minLength = 8;
 if (!email || !/^\S+@\S+\.\S+$/.test(email) || !password || password.length < minLength || !/^[a-z][a-z0-9._-]{2,31}$/.test(username)) {
   throw new Error(`Set ADMIN_EMAIL, ADMIN_USERNAME and a unique ADMIN_PASSWORD of at least ${minLength} characters in the environment`);
 }

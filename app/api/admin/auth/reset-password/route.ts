@@ -2,7 +2,7 @@ import { z } from "zod";
 import { audit, hashPassword, requestOriginAllowed, tokenHash } from "@/lib/admin/auth";
 import { transaction } from "@/lib/db";
 
-const schema = z.object({ token: z.string().min(32).max(200), newPassword: z.string().min(14).max(500) });
+const schema = z.object({ token: z.string().min(32).max(200), newPassword: z.string().min(8).max(500) });
 
 export async function POST(request: Request) {
   if (!(await requestOriginAllowed(request))) return Response.json({ code: "BAD_ORIGIN" }, { status: 403 });

@@ -110,7 +110,7 @@ export const modules: Record<string, ModuleDefinition> = {
     search: ["username", "email", "display_name", "role_id"], columns: ["username", "email", "display_name", "role_id", "active", "last_login_at", "created_at"],
     fields: [{ key: "username", label: "登录账号", type: "text", required: true, help: "3–32 位小写字母、数字、点、下划线或连字符，须以字母开头。" }, { key: "email", label: "邮箱", type: "email", required: true }, { key: "display_name", label: "姓名", type: "text", required: true },
       { key: "role_id", label: "所属角色", type: "text", required: true }, { key: "active", label: "启用", type: "boolean" },
-      { key: "temporary_password", label: "初始密码（至少 14 位）", type: "text", help: "仅创建用户时填写；首次登录必须修改。" }],
+      { key: "temporary_password", label: "初始密码（至少 8 位）", type: "text", help: "仅创建用户时填写；首次登录必须修改。" }],
   },
 };
 

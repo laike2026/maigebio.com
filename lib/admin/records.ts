@@ -189,7 +189,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
   await validateBusinessRules(name, values);
   if (name === "users") {
     const password = values.temporary_password;
-    if (typeof password !== "string" || password.length < 14) throw new AdminError("PASSWORD_TOO_SHORT", "初始密码至少 14 位");
+    if (typeof password !== "string" || password.length < 8) throw new AdminError("PASSWORD_TOO_SHORT", "初始密码至少 8 位");
     values.password_hash = await hashPassword(password);
     delete values.temporary_password;
     values.email = String(values.email).toLowerCase();

@@ -8,7 +8,7 @@ For Docker, set `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` an
 
 ## First administrator
 
-Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm db:create-admin` before starting PGlite. The password must normally have at least 14 characters. For the approved 12-character one-time bootstrap password, set `ADMIN_ALLOW_SHORT_INITIAL=YES` for that command only. The first login forces a change to a new password of at least 14 characters. The script never prints the password. For PostgreSQL, set `DATABASE_URL_UNPOOLED` or `DATABASE_URL` to a direct connection before invoking the same command. Do not put bootstrap credentials in Git or long-lived Vercel variables.
+Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm db:create-admin` before starting PGlite. The password must have at least 8 characters. The first login forces a change to a new password of at least 8 characters. The script never prints the password. For PostgreSQL, set `DATABASE_URL_UNPOOLED` or `DATABASE_URL` to a direct connection before invoking the same command. Do not put bootstrap credentials in Git or long-lived Vercel variables.
 
 ## Vercel deployment and checks
 
