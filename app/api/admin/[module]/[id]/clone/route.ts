@@ -15,7 +15,7 @@ export async function POST(request: Request, context: { params: Promise<{ module
     const old = await getRecord(module, id);
     const suffix = randomBytes(3).toString("hex");
     const copy: Record<string, unknown> = { status: "draft", slug: `${String(old.slug).slice(0, 140)}-copy-${suffix}`, featured: false, pinned: false };
-    for (const field of modules[module].fields) if (!["id", "slug", "sku", "status", "featured", "pinned", "scheduled_at"].includes(field.key) && old[field.key] !== null && old[field.key] !== undefined) copy[field.key] = old[field.key];
+    for (const field of modules[module].fields) if (!["id", "slug", "sku", "status", "featured", "pinned"].includes(field.key) && old[field.key] !== null && old[field.key] !== undefined) copy[field.key] = old[field.key];
     if (module === "products") copy.sku = `${String(old.sku).slice(0, 120)}-COPY-${suffix.toUpperCase()}`;
     const created = await createRecord(module, copy, user);
     if (module === "products") {

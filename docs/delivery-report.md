@@ -8,13 +8,13 @@
 
 - 独立中文后台；管理员可用账号名或邮箱登录，密码可显示/隐藏，可通过邮箱重置密码，并可在个人账户页修改账号、邮箱和密码。邮箱变更须通过新邮箱的验证链接。初始账号为 `admin`，绑定 `info@maigebio.com`，首次登录强制改密。初始密码由项目负责人提供，仅用于一次性初始化，没有写入 Git 或 Vercel 长期变量。
 - 工作台、七类角色、页面与 API 权限、会话管理、审计、内容软删除与恢复。
-- 产品与分类、新闻与分类、媒体库、富文本、SEO、关联内容、版本恢复、预览、定时发布、四语言内容与前台数据库读取；原有静态内容仍作回退。
+- 产品与分类、新闻与分类、媒体库、富文本、SEO、关联内容、版本恢复、预览、四语言内容与前台数据库读取；原有静态内容仍作回退。定时发布功能于 2026-10-18 移除。
 - CSV/XLSX 导入预览和错误报告、持久化分批导出、询盘入库与邮件通知、状态和备注管理。
 - 经访客同意后统计地址点击、WhatsApp 点击及表单展示/开始/字段完成/提交；未提交的字段值不保存。GA4 报表、Search Console 适配、SEO 检查和同步中心。
 
 ## 正式资源
 
-- Neon 免费 PostgreSQL `maigebio-admin-db`，仅向该 Vercel 项目的 Production 注入敏感连接变量；已执行 `001` 至 `012` 共 12 个迁移，并创建初始管理员。
+- Neon 免费 PostgreSQL `maigebio-admin-db`，仅向该 Vercel 项目的 Production 注入敏感连接变量；已执行 `001` 至 `013` 共 13 个迁移，并创建初始管理员。
 - 私有 Vercel Blob `maigebio-media`，仅向 Production 注入读写令牌、存储 ID 和 webhook 公钥。
 - `CRON_SECRET`、`IP_HASH_SALT`、`ANALYTICS_HASH_SALT` 在 Production 配置。Vercel 的 Cron Jobs 页面确认 `/api/cron` 每五分钟执行一次且功能已启用。
 - Resend、GA4 及站点 URL 沿用项目既有 Production 配置。敏感变量不使用 `NEXT_PUBLIC_` 前缀。

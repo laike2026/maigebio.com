@@ -3,14 +3,16 @@ import { GoogleAuth } from "google-auth-library";
 import { sendInquiryNotification } from "@/app/api/inquiry/route";
 import { query, transaction } from "@/lib/db";
 import { ga4Configured, ga4Report } from "@/lib/ga4";
+import { getSeoSettings } from "@/lib/seo-settings";
 
-type Source = "ga4" | "search_console" | "seo_audit" | "content_publish" | "email_retry" | "retention_cleanup";
-const sources: Source[] = ["ga4", "search_console", "seo_audit", "content_publish", "email_retry", "retention_cleanup"];
+type Source = "ga4" | "search_console" | "seo_audit" | "google_sitemap" | "email_retry" | "retention_cleanup";
+const sources: Source[] = ["ga4", "search_console", "seo_audit", "google_sitemap", "email_retry", "retention_cleanup"];
+const recurringSources: Source[] = ["ga4", "search_console", "seo_audit", "email_retry", "retention_cleanup"];
 const date = (value: Date) => value.toISOString().slice(0, 10);
 
 export async function scheduleDueJobs() {
   const due = await query<{ id: Source; frequency_minutes: number }>(
-    "SELECT id,frequency_minutes FROM sync_sources WHERE enabled=true AND (next_run_at IS NULL OR next_run_at<=now())");
+    "SELECT id,frequency_minutes FROM sync_sources WHERE enabled=true AND id=ANY($1::text[]) AND (next_run_at IS NULL OR next_run_at<=now())", [recurringSources]);
   for (const source of due.rows) {
     const minutes = Math.max(5, Number(source.frequency_minutes) || 60);
     const bucket = Math.floor(Date.now() / (minutes * 60_000));
@@ -75,6 +77,25 @@ async function runSearchConsole() {
   return processed;
 }
 
+async function runGoogleSitemap() {
+  const settings = await getSeoSettings();
+  if (!settings.indexingEnabled || !settings.sitemapEnabled || process.env.NEXT_PUBLIC_INDEXABLE !== "true") throw new Error("SITEMAP_DISABLED");
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!site || !/^https:\/\//.test(site)) throw new Error("SITEMAP_SITE_NOT_CONFIGURED");
+  const sitemapUrl = new URL("/sitemap.xml", site).toString();
+  const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON) : undefined;
+  if (!credentials && !process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("SEARCH_CONSOLE_NOT_CONFIGURED");
+  const auth = new GoogleAuth({ credentials, keyFilename: credentials ? undefined : process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    scopes: ["https://www.googleapis.com/auth/webmasters"] });
+  const client = await auth.getClient();
+  const token = await client.getAccessToken();
+  if (!token.token) throw new Error("SEARCH_CONSOLE_TOKEN_UNAVAILABLE");
+  const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(settings.searchConsoleProperty)}/sitemaps/${encodeURIComponent(sitemapUrl)}`;
+  const response = await fetch(endpoint, { method: "PUT", headers: { Authorization: `Bearer ${token.token}` }, cache: "no-store", signal: AbortSignal.timeout(20_000) });
+  if (!response.ok) throw new Error(`GOOGLE_SITEMAP_HTTP_${response.status}`);
+  return 1;
+}
+
 async function runSeoAudit() {
   const issues: { kind: string; path: string; details: string; severity: string }[] = [];
   type Content = { path: string; title: string; description: string; seo: Record<string, unknown>; media_id: string | null; alt_text: string | null };
@@ -107,12 +128,6 @@ async function runSeoAudit() {
       [issue.kind, issue.severity, issue.path, issue.details]);
   });
   return issues.length;
-}
-
-async function runContentPublish() {
-  const products = await query("UPDATE products SET status='published',published_at=now(),updated_at=now(),version=version+1 WHERE status='scheduled' AND scheduled_at<=now() AND deleted_at IS NULL RETURNING id");
-  const news = await query("UPDATE news_articles SET status='published',published_at=now(),updated_at=now(),version=version+1 WHERE status='scheduled' AND scheduled_at<=now() AND deleted_at IS NULL RETURNING id");
-  return products.rowCount + news.rowCount;
 }
 
 async function runEmailRetry(jobKey: string) {
@@ -158,7 +173,7 @@ export async function runDueJobs(limit = 10, onlySource?: string) {
     if (!job) break;
     try {
       const processed = job.source_id === "ga4" ? await runGa4() : job.source_id === "search_console" ? await runSearchConsole()
-        : job.source_id === "seo_audit" ? await runSeoAudit() : job.source_id === "content_publish" ? await runContentPublish()
+        : job.source_id === "seo_audit" ? await runSeoAudit() : job.source_id === "google_sitemap" ? await runGoogleSitemap()
         : job.source_id === "email_retry" ? await runEmailRetry(job.idempotency_key) : job.source_id === "retention_cleanup" ? await runRetentionCleanup() : 0;
       await query("UPDATE sync_jobs SET status='succeeded',finished_at=now(),duration_ms=(extract(epoch from now()-started_at)*1000)::int,processed_count=$2,error_code=NULL,error_detail=NULL WHERE id=$1", [job.id, processed]);
       await query("UPDATE sync_sources SET last_success_at=now(),last_error=NULL,updated_at=now() WHERE id=$1", [job.source_id]);

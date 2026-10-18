@@ -28,7 +28,7 @@ const tableColumns: Record<string, string[]> = {
 
 const valueLabels: Record<string, string> = {
   new: "新询盘", contacted: "跟进中", qualified: "已确认需求", closed: "已结束", spam: "无效询盘",
-  draft: "草稿", review: "待审核", published: "已发布", scheduled: "定时发布", unlisted: "已下架", archived: "已归档",
+  draft: "草稿", review: "待审核", published: "已发布", unlisted: "已下架", archived: "已归档",
   admin: "管理员", editor: "编辑", viewer: "查看者",
 };
 
@@ -109,7 +109,7 @@ export default function AdminList({ module, canCreate, canUpdate, canDelete, can
   return <>
     <div className="admin-page-head"><div><h1>{module.title}</h1><p>共 {data?.total ?? "—"} 条</p></div><div className="admin-quick-links">{module.key === "media" && canCreate && <Link className="admin-primary" href="/admin/media/upload"><IconUpload size={17} stroke={1.8} />上传文件</Link>}{canCreate && ["products","categories"].includes(module.key) && <Link className="admin-secondary" href={`/admin/${module.key}/import`}>批量导入</Link>}{canCreate && !["media", "leads", "sync", "seo_issues"].includes(module.key) && <Link className="admin-primary" href={`/admin/${module.key}/new`}><IconPlus size={17} stroke={1.8} />新增{module.singular}</Link>}{canExport && <ExportButton module={module.key} q={q} />}</div></div>
     <div className="admin-panel admin-list-panel"><div className="admin-toolbar"><div className="admin-search-field"><IconSearch size={18} stroke={1.8} aria-hidden="true" /><input aria-label="关键词搜索" placeholder="搜索名称、关键词…" value={queryText} onChange={(event) => setQueryText(event.target.value)} /></div>
-      {(module.key === "products" || module.key === "news") && <select aria-label="状态筛选" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">全部状态</option><option value="draft">草稿</option><option value="review">待审核</option><option value="published">已发布</option><option value="scheduled">定时发布</option><option value="unlisted">已下架</option><option value="archived">已归档</option></select>}
+      {(module.key === "products" || module.key === "news") && <select aria-label="状态筛选" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">全部状态</option><option value="draft">草稿</option><option value="review">待审核</option><option value="published">已发布</option><option value="unlisted">已下架</option><option value="archived">已归档</option></select>}
       {module.key === "leads" && <select aria-label="状态筛选" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">全部状态</option>{leadStatuses.map((item) => <option key={item.id} value={item.id}>{item.name_zh}</option>)}</select>}
       <button className={`admin-filter-toggle${showAdvanced ? " is-open" : ""}`} type="button" aria-expanded={showAdvanced} onClick={() => setShowAdvanced((value) => !value)}><IconAdjustments size={17} stroke={1.8} />更多筛选</button>
       {showAdvanced && <div className="admin-advanced-filters">

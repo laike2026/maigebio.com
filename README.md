@@ -24,7 +24,7 @@ pnpm dev --port 3000
 
 Visit `http://127.0.0.1:3000/en` and `http://127.0.0.1:3000/admin`. The initial administrator must change the password at first login. The local administrator for this review was created using an ignored, permission-restricted file under `.secrets`; no credential is committed. **Stop the local Next.js server before running `db:migrate`, `db:create-admin`, `db:backup` or `db:restore` against PGlite**. PGlite cannot be opened safely by two processes; scripts enforce this lock.
 
-For local scheduled jobs, set a `CRON_SECRET` of at least 24 random characters and run `pnpm worker` (or call the protected cron endpoint). The Vercel project uses the schedule in `vercel.json`.
+For local background jobs, set a `CRON_SECRET` of at least 24 random characters and run `pnpm worker` (or call the protected cron endpoint). The Vercel project uses the schedules in `vercel.json`: routine data jobs every five minutes and Search Console sitemap submission every Monday at 09:00 Asia/Shanghai. The sitemap submission requires Search Console write scope and suitable property access.
 
 ## Docker development
 
@@ -39,7 +39,7 @@ The site runs at `http://localhost:3000`, the MinIO console at `http://localhost
 
 ## Production deployment
 
-The **laike2026** Vercel project `maigebio-com` is deployed at [maigebio.com](https://maigebio.com). Neon PostgreSQL and private Vercel Blob are connected only to Production. Migrations `001`–`012` and the initial `admin` account are in place. Server secrets are sensitive Production variables; see [.env.example](.env.example). The existing Resend integration is configured for enquiry notifications to `info@maigebio.com`.
+The **laike2026** Vercel project `maigebio-com` is deployed at [maigebio.com](https://maigebio.com). Neon PostgreSQL and private Vercel Blob are connected only to Production. Migrations `001`–`013` and the initial `admin` account are in place. Server secrets are sensitive Production variables; see [.env.example](.env.example). The existing Resend integration is configured for enquiry notifications to `info@maigebio.com`.
 
 `NEXT_PUBLIC_SITE_URL=https://maigebio.com`, `NEXT_PUBLIC_INDEXABLE=true`, and the SEO settings together control search indexing. The initial administrator must change the bootstrap password at first login before using protected content and media functions.
 

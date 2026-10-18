@@ -4,7 +4,7 @@ export type ModuleDefinition = { key: string; title: string; table: string; sing
 
 const contentStates = [
   { value: "draft", label: "草稿" }, { value: "review", label: "待审核" },
-  { value: "published", label: "已发布" }, { value: "scheduled", label: "定时发布" },
+  { value: "published", label: "已发布" },
   { value: "unlisted", label: "已下架" }, { value: "archived", label: "已归档" },
 ];
 
@@ -40,7 +40,7 @@ export const modules: Record<string, ModuleDefinition> = {
       ] },
       { key: "price_min", label: "最低价格", type: "number" }, { key: "price_max", label: "最高价格", type: "number" },
       { key: "featured", label: "推荐", type: "boolean" }, { key: "pinned", label: "置顶", type: "boolean" },
-      { key: "sort_order", label: "排序值", type: "number" }, { key: "scheduled_at", label: "定时发布时间", type: "datetime" },
+      { key: "sort_order", label: "排序值", type: "number" },
       { key: "seo", label: "搜索展示", type: "json" },
     ],
   },
@@ -62,7 +62,7 @@ export const modules: Record<string, ModuleDefinition> = {
       { key: "excerpt_en", label: "英文摘要", type: "textarea" }, { key: "body_html_en", label: "英文正文", type: "html" },
       { key: "author", label: "作者", type: "text" }, { key: "tags", label: "标签", type: "json" },
       { key: "cover_id", label: "封面图片", type: "text" }, { key: "featured", label: "推荐", type: "boolean" },
-      { key: "pinned", label: "置顶", type: "boolean" }, { key: "scheduled_at", label: "定时发布时间", type: "datetime" },
+      { key: "pinned", label: "置顶", type: "boolean" },
       { key: "seo", label: "搜索展示", type: "json" },
     ],
   },

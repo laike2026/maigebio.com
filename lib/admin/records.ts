@@ -171,10 +171,6 @@ async function validateBusinessRules(name: string, values: Record<string, unknow
     const collision = await query(`SELECT id FROM ${otherTable} WHERE slug=$1 AND deleted_at IS NULL LIMIT 1`, [values.slug]);
     if (collision.rows.length) throw new AdminError("SLUG_COLLISION", "该 Slug 已用于产品或分类", 409);
   }
-  if (name === "products" || name === "news") {
-    const status = values.status;
-    if (status === "scheduled" && !values.scheduled_at) throw new AdminError("SCHEDULE_REQUIRED", "定时发布需要设置时间");
-  }
   if (name === "roles" && values.permissions) {
     const arr = JSON.parse(String(values.permissions));
     if (!arr.every((value: unknown) => typeof value === "string" && /^[a-z_*]+:(view|create|update|delete|publish|export|sync|\*)$|^\*$/.test(value))) throw new AdminError("INVALID_PERMISSION", "权限列表格式无效");
@@ -185,7 +181,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
   const module = getModule(name);
   if (module.readOnly || ["leads", "media", "sync", "seo_issues"].includes(name)) throw new AdminError("NOT_ALLOWED", "此模块不能手动新增", 405);
   const values = parseInput(module, raw, true);
-  if (contentModules.has(name) && values.status && ["published", "scheduled"].includes(String(values.status)) && !canPublish(user, name)) throw new AdminError("PUBLISH_FORBIDDEN", "没有发布权限", 403);
+  if (contentModules.has(name) && values.status === "published" && !canPublish(user, name)) throw new AdminError("PUBLISH_FORBIDDEN", "没有发布权限", 403);
   await validateBusinessRules(name, values);
   if (name === "users") {
     const password = values.temporary_password;
@@ -223,7 +219,7 @@ export async function updateRecord(name: string, id: string, raw: unknown, user:
   if (name === "roles" && id === "superadmin") throw new AdminError("PROTECTED_ROLE", "超级管理员权限不能修改", 403);
   if (name === "users" && id === user.id && raw && typeof raw === "object" && (raw as Record<string, unknown>).active === false) throw new AdminError("SELF_DISABLE", "不能停用当前账户");
   const values = parseInput(module, raw, false);
-  if (contentModules.has(name) && values.status && ["published", "scheduled"].includes(String(values.status)) && !canPublish(user, name)) throw new AdminError("PUBLISH_FORBIDDEN", "没有发布权限", 403);
+  if (contentModules.has(name) && values.status === "published" && !canPublish(user, name)) throw new AdminError("PUBLISH_FORBIDDEN", "没有发布权限", 403);
   await validateBusinessRules(name, values, id);
   if (name === "users") {
     delete values.temporary_password;

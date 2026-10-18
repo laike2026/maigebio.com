@@ -24,7 +24,7 @@ const previewFields: Record<string, { key: string; label: string }[]> = {
 
 const statusLabels: Record<string, string> = {
   new: "新询盘", contacted: "跟进中", qualified: "已确认需求", closed: "已结束", spam: "无效询盘",
-  draft: "草稿", review: "待审核", published: "已发布", scheduled: "定时发布", unlisted: "已下架", archived: "已归档",
+  draft: "草稿", review: "待审核", published: "已发布", unlisted: "已下架", archived: "已归档",
   open: "待处理", resolved: "已解决", ignored: "已忽略",
 };
 

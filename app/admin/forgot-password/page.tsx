@@ -1,2 +1,3 @@
 import PasswordForm from "@/components/admin/PasswordForm";
-export default function ForgotPage() { return <div className="admin-login-wrap"><PasswordForm mode="forgot" /></div>; }
+import AdminAuthShell from "@/components/admin/AdminAuthShell";
+export default function ForgotPage() { return <AdminAuthShell><PasswordForm mode="forgot" /></AdminAuthShell>; }

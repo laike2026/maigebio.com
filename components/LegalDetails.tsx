@@ -17,7 +17,7 @@ export default function LegalDetails({ locale, kind }: { locale: Locale; kind: "
     <h2>Information we receive</h2>
     <p>When you send an enquiry, we receive the name, company, email address, country or region, product interest and message you provide. We also receive the page and campaign source associated with the enquiry. Please do not submit sensitive personal information in the message field.</p>
     <h2>How we use it</h2>
-    <p>We use enquiry information to respond, discuss specifications and quotations, and keep a record of the correspondence. We do not use the enquiry form to subscribe you to marketing emails. Enquiry messages are delivered through our email service provider to our business inbox at info@maigebio.com. Our website is hosted on Vercel.</p>
+    <p>We use enquiry information to respond, discuss specifications and quotations, and keep a record of the correspondence. We do not use the enquiry form to subscribe you to marketing emails. Enquiry messages are delivered through our email service provider to our business inbox at info@maigebio.com. Our website is hosted by a cloud service provider.</p>
     <h2>Analytics and external services</h2>
     <p>Google Analytics runs only if you select “Allow analytics” in the site’s analytics control. You can change that choice using “Analytics settings”. If you choose to contact us through WhatsApp, its own privacy terms apply. Our service providers may process information in countries outside your own.</p>
     <h2>Retention and your choices</h2>

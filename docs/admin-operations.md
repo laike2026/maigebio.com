@@ -17,7 +17,7 @@ Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm
 3. Add `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, `IP_HASH_SALT`, `ANALYTICS_HASH_SALT`, GA4 service account variables, Resend variables, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_INDEXABLE`, and the GA4 measurement ID from `.env.example`. `GOOGLE_SERVICE_ACCOUNT_JSON` and Blob/Resend secrets must be Production-only and never use the `NEXT_PUBLIC_` prefix. S3 variables are an alternative for Docker or other hosts.
 4. Verify the Resend sending domain and `info@maigebio.com` recipient. Give the service account viewer access to GA4 property `558913614`. Search Console requires separate site permission and API enablement; its source should stay off until configured.
 5. Verify `/api/health`, admin login, media upload, published content API, enquiry persistence/email, tracking consent, sitemap and rollback on Production. A Preview environment needs its own database branch and media store; it must never use Production credentials.
-6. `vercel.json` schedules `/api/cron` every five minutes on Vercel Production; the platform sends `Authorization: Bearer <CRON_SECRET>`. Verify successful jobs on `/admin/sync`. A Docker worker is provided for self-hosted operation.
+6. `vercel.json` schedules `/api/cron` every five minutes and `/api/cron/google-sitemap` every Monday at 01:00 UTC (09:00 Asia/Shanghai) on Vercel Production; the platform sends `Authorization: Bearer <CRON_SECRET>`. Verify successful jobs on `/admin/sync`. Sitemap submission needs Search Console write scope and property access. A Docker worker is provided for routine self-hosted jobs.
 
 ## Backup and recovery
 

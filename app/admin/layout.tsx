@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./admin.css";
 import "./admin-redesign.css";
+import "./admin-auth.css";
 
 export const metadata: Metadata = { title: "MAIGE 管理后台", robots: { index: false, follow: false } };
 

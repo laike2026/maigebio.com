@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS products (
   sku text NOT NULL UNIQUE,
   slug text NOT NULL UNIQUE,
   primary_category_id uuid REFERENCES product_categories(id),
-  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','published','scheduled','unlisted','archived')),
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','published','unlisted','archived')),
   name_en text NOT NULL,
   summary_en text NOT NULL DEFAULT '',
   description_html_en text NOT NULL DEFAULT '',
@@ -128,7 +128,6 @@ CREATE TABLE IF NOT EXISTS products (
   sort_order integer NOT NULL DEFAULT 0,
   seo jsonb NOT NULL DEFAULT '{}'::jsonb,
   published_at timestamptz,
-  scheduled_at timestamptz,
   version integer NOT NULL DEFAULT 1,
   created_by uuid REFERENCES users(id),
   updated_by uuid REFERENCES users(id),
@@ -185,7 +184,7 @@ CREATE TABLE IF NOT EXISTS news_articles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text NOT NULL UNIQUE,
   category_id uuid REFERENCES news_categories(id),
-  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','published','scheduled','unlisted','archived')),
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','published','unlisted','archived')),
   title_en text NOT NULL,
   excerpt_en text NOT NULL DEFAULT '',
   body_html_en text NOT NULL DEFAULT '',
@@ -197,7 +196,6 @@ CREATE TABLE IF NOT EXISTS news_articles (
   views bigint NOT NULL DEFAULT 0,
   seo jsonb NOT NULL DEFAULT '{}'::jsonb,
   published_at timestamptz,
-  scheduled_at timestamptz,
   version integer NOT NULL DEFAULT 1,
   created_by uuid REFERENCES users(id),
   updated_by uuid REFERENCES users(id),
@@ -436,7 +434,7 @@ INSERT INTO lead_statuses(id,name_zh,sort_order,system_status) VALUES
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO form_definitions(id,name_zh,type) VALUES ('contact','联系与询价','contact') ON CONFLICT (id) DO NOTHING;
 INSERT INTO sync_sources(id,name_zh,frequency_minutes) VALUES
- ('ga4','GA4 访问分析',60),('search_console','Google Search Console',360),('seo_audit','站内 SEO 检查',1440),('content_publish','定时内容发布',5),('email_retry','询盘邮件重试',5)
+ ('ga4','GA4 访问分析',60),('search_console','Google Search Console',360),('seo_audit','站内 SEO 检查',1440),('email_retry','询盘邮件重试',5)
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO system_settings(key,value) VALUES
  ('site','{"name":"MAIGE Bio","defaultLocale":"en","timezone":"Asia/Shanghai","dateFormat":"yyyy-MM-dd","pageSize":20}'),
