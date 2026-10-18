@@ -2,13 +2,12 @@ import "server-only";
 import { GoogleAuth } from "google-auth-library";
 import { sendInquiryNotification } from "@/app/api/inquiry/route";
 import { query, transaction } from "@/lib/db";
-import { ga4Configured, ga4Report } from "@/lib/ga4";
+import { runDataChunk } from "@/lib/admin/data-sync";
 import { getSeoSettings } from "@/lib/seo-settings";
 
 type Source = "ga4" | "search_console" | "seo_audit" | "google_sitemap" | "email_retry" | "retention_cleanup";
 const sources: Source[] = ["ga4", "search_console", "seo_audit", "google_sitemap", "email_retry", "retention_cleanup"];
-const recurringSources: Source[] = ["ga4", "search_console", "seo_audit", "email_retry", "retention_cleanup"];
-const date = (value: Date) => value.toISOString().slice(0, 10);
+const recurringSources: Source[] = ["seo_audit", "email_retry", "retention_cleanup"];
 
 export async function scheduleDueJobs() {
   const due = await query<{ id: Source; frequency_minutes: number }>(
@@ -20,61 +19,6 @@ export async function scheduleDueJobs() {
     await query("UPDATE sync_sources SET next_run_at=now()+($2::text || ' minutes')::interval,updated_at=now() WHERE id=$1", [source.id, minutes]);
   }
   return due.rows.length;
-}
-
-async function runGa4() {
-  if (!ga4Configured()) throw new Error("GA4_NOT_CONFIGURED");
-  const end = new Date(); end.setUTCDate(end.getUTCDate() - 1);
-  const start = new Date(end); start.setUTCDate(start.getUTCDate() - 6);
-  const report = await ga4Report({
-    dateRanges: [{ startDate: date(start), endDate: date(end) }],
-    dimensions: [{ name: "date" }],
-    metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "screenPageViews" }], limit: 20,
-  });
-  for (const row of report.rows || []) {
-    const raw = row.dimensionValues?.[0]?.value || "";
-    if (!/^\d{8}$/.test(raw)) continue;
-    const day = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-    await query(`INSERT INTO ga4_daily_metrics(day,users,sessions,page_views) VALUES($1,$2,$3,$4)
-      ON CONFLICT(day) DO UPDATE SET users=excluded.users,sessions=excluded.sessions,page_views=excluded.page_views,synced_at=now()`,
-    [day, Number(row.metricValues?.[0]?.value || 0), Number(row.metricValues?.[1]?.value || 0), Number(row.metricValues?.[2]?.value || 0)]);
-  }
-  return report.rows?.length || 0;
-}
-
-async function runSearchConsole() {
-  const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON) : undefined;
-  if (!credentials && !process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("SEARCH_CONSOLE_NOT_CONFIGURED");
-  const setting = await query<{ value: { searchConsoleProperty?: string } }>("SELECT value FROM system_settings WHERE key='seo'");
-  const property = setting.rows[0]?.value?.searchConsoleProperty || "sc-domain:maigebio.com";
-  const auth = new GoogleAuth({ credentials, keyFilename: credentials ? undefined : process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    scopes: ["https://www.googleapis.com/auth/webmasters.readonly"] });
-  const client = await auth.getClient();
-  const token = await client.getAccessToken();
-  if (!token.token) throw new Error("SEARCH_CONSOLE_TOKEN_UNAVAILABLE");
-  const end = new Date(); end.setUTCDate(end.getUTCDate() - 3);
-  const start = new Date(end); start.setUTCDate(start.getUTCDate() - 6);
-  let processed = 0;
-  for (let rowStart = 0; rowStart < 10_000; rowStart += 1000) {
-    const response = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
-      method: "POST", headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate: date(start), endDate: date(end), dimensions: ["date", "page", "query", "country", "device"], rowLimit: 1000, startRow: rowStart }),
-      cache: "no-store", signal: AbortSignal.timeout(20_000),
-    });
-    if (!response.ok) throw new Error(`SEARCH_CONSOLE_HTTP_${response.status}`);
-    const body = await response.json() as { rows?: { keys: string[]; clicks: number; impressions: number; position: number }[] };
-    for (const row of body.rows || []) {
-      const [day, page, term, country, device] = row.keys;
-      let path = page;
-      try { path = new URL(page).pathname; } catch { /* keep source path */ }
-      await query(`INSERT INTO seo_metrics(day,page_path,query,country,device,clicks,impressions,position) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-        ON CONFLICT(day,page_path,query,country,device) DO UPDATE SET clicks=excluded.clicks,impressions=excluded.impressions,position=excluded.position`,
-      [day, path, term || "", country || "", device || "", row.clicks, row.impressions, row.position]);
-      processed++;
-    }
-    if ((body.rows?.length || 0) < 1000) break;
-  }
-  return processed;
 }
 
 async function runGoogleSitemap() {
@@ -172,11 +116,11 @@ export async function runDueJobs(limit = 10, onlySource?: string) {
     const job = claim.rows[0];
     if (!job) break;
     try {
-      const processed = job.source_id === "ga4" ? await runGa4() : job.source_id === "search_console" ? await runSearchConsole()
+      const processed = job.source_id === "ga4" || job.source_id === "search_console" ? await runDataChunk(job.source_id)
         : job.source_id === "seo_audit" ? await runSeoAudit() : job.source_id === "google_sitemap" ? await runGoogleSitemap()
         : job.source_id === "email_retry" ? await runEmailRetry(job.idempotency_key) : job.source_id === "retention_cleanup" ? await runRetentionCleanup() : 0;
       await query("UPDATE sync_jobs SET status='succeeded',finished_at=now(),duration_ms=(extract(epoch from now()-started_at)*1000)::int,processed_count=$2,error_code=NULL,error_detail=NULL WHERE id=$1", [job.id, processed]);
-      await query("UPDATE sync_sources SET last_success_at=now(),last_error=NULL,updated_at=now() WHERE id=$1", [job.source_id]);
+      await query("UPDATE sync_sources SET last_success_at=now(),last_error=NULL,next_run_at=CASE WHEN id IN ('ga4','search_console') THEN now()+interval '72 hours' ELSE next_run_at END,updated_at=now() WHERE id=$1", [job.source_id]);
       outcomes.push({ source: job.source_id, status: "succeeded", processed });
     } catch (error) {
       const code = error instanceof Error ? error.message.slice(0, 100) : "UNKNOWN";

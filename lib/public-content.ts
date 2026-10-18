@@ -76,7 +76,7 @@ export async function publishedArticles(locale: Locale, options: { q?: string; c
        m.url AS image_url,a.published_at,COALESCE(t.seo,a.seo) AS seo
        FROM news_articles a LEFT JOIN news_translations t ON t.article_id=a.id AND t.locale=$1 AND t.translation_status='complete'
        LEFT JOIN media_assets m ON m.id=a.cover_id AND m.deleted_at IS NULL LEFT JOIN news_categories c ON c.id=a.category_id
-       WHERE a.status='published' AND a.deleted_at IS NULL AND (a.published_at IS NULL OR a.published_at<=now())
+       WHERE a.status='published' AND a.deleted_at IS NULL
        AND ($2='' OR a.title_en ILIKE '%'||$2||'%') AND ($3='' OR c.slug=$3)
        ORDER BY a.pinned DESC,a.published_at DESC,a.id DESC LIMIT $4 OFFSET $5`, [locale, (options.q || "").slice(0, 150), options.category || "", size, options.offset ?? (page - 1) * size]);
     return rows.rows;
@@ -91,7 +91,7 @@ export async function publishedArticle(locale: Locale, slug: string) {
        m.url AS image_url,a.published_at,COALESCE(t.seo,a.seo) AS seo
        FROM news_articles a LEFT JOIN news_translations t ON t.article_id=a.id AND t.locale=$1 AND t.translation_status='complete'
        LEFT JOIN media_assets m ON m.id=a.cover_id AND m.deleted_at IS NULL
-       WHERE (a.slug=$2 OR t.slug=$2) AND a.status='published' AND a.deleted_at IS NULL AND (a.published_at IS NULL OR a.published_at<=now()) LIMIT 1`, [locale, slug]);
+       WHERE (a.slug=$2 OR t.slug=$2) AND a.status='published' AND a.deleted_at IS NULL LIMIT 1`, [locale, slug]);
     return rows.rows[0] || null;
   } catch { return null; }
 }

@@ -80,6 +80,17 @@ export default function AdminEditor({ module, id, canUpdate, canDelete, canPubli
     try { const response = await fetch(`/api/admin/${module.key}/${id}/clone`, { method: "POST" }); const result = await response.json(); if (!response.ok) throw new Error(result.message || "复制失败"); router.push(`/admin/${module.key}/${result.id}`); }
     catch (err) { setError(err instanceof Error ? err.message : "复制失败"); setSaving(false); }
   }
+  async function publishNews() {
+    if (!id || module.key !== "news" || !record || !confirm("确定发布这篇文章？")) return;
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch(`/api/admin/news/${id}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedVersion: record.version }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "发布失败");
+      setRecord(result); setValues((previous) => ({ ...previous, status: "published" })); setSuccess("文章已发布"); setDirty(false); router.refresh();
+    } catch (err) { setError(err instanceof Error ? err.message : "发布失败"); }
+    finally { setSaving(false); }
+  }
   if (busy) return <div className="admin-empty">正在加载…</div>;
   return <><div className="admin-page-head"><div><h1>{isNew ? `新增${module.singular}` : `${module.singular}详情`}</h1><p><Link className="admin-back-link" href={`/admin/${module.key}`}><IconArrowLeft size={16} stroke={1.8} />返回{module.title}</Link></p></div></div>
     {error && <p className="admin-error" role="alert">{error}</p>}{success && <p className="admin-success" role="status">{success}</p>}
@@ -105,12 +116,12 @@ export default function AdminEditor({ module, id, canUpdate, canDelete, canPubli
         return <label className={field.type === "textarea" || field.type === "html" ? "wide" : ""} key={field.key}>{field.label}{field.required && " *"}
           {field.type === "html" ? <RichEditor value={String(value)} onChange={(html) => set(field.key, html)} label={field.label} disabled={disabled} /> :
             field.type === "textarea" ? <textarea value={String(value)} disabled={disabled} onChange={(event) => set(field.key, event.target.value)} rows={4} /> :
-            field.type === "select" ? <select value={String(value)} disabled={disabled} onChange={(event) => set(field.key, event.target.value)}><option value="">请选择</option>{field.options?.filter((option) => field.key !== "status" || canPublish || option.value !== "published" || option.value === value).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> :
+            field.type === "select" ? <select value={String(value)} disabled={disabled} onChange={(event) => set(field.key, event.target.value)}><option value="">请选择</option>{field.options?.filter((option) => field.key !== "status" || option.value !== "published" || (module.key === "news" ? !isNew && record?.status === "published" : canPublish || option.value === value)).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> :
             <input type={field.type === "number" ? "number" : field.type === "email" ? "email" : field.type === "datetime" ? "datetime-local" : "text"} step={field.type === "number" ? "any" : undefined} value={String(value)} required={field.required} disabled={disabled} onChange={(event) => set(field.key, event.target.value)} />}
           {field.help && <small>{field.help}</small>}
         </label>;
       })}
-      <div className="admin-form-actions">{(isNew || canUpdate) && <button className="admin-primary" disabled={saving}><IconDeviceFloppy size={17} stroke={1.8} />{saving ? "保存中…" : "保存"}</button>}{!isNew && canCreate && ["products","news"].includes(module.key) && <button type="button" className="admin-secondary" onClick={clone} disabled={saving}><IconCopy size={17} stroke={1.8} />复制为草稿</button>}{!isNew && canDelete && <button type="button" className="admin-danger" onClick={remove} disabled={saving}><IconTrash size={17} stroke={1.8} />删除</button>}{!isNew && ["products","news"].includes(module.key) && <a className="admin-secondary" href={`/admin/preview/${module.key}/${id}`} target="_blank"><IconExternalLink size={17} stroke={1.8} />预览内容</a>}</div>
+      <div className="admin-form-actions">{(isNew || canUpdate) && <button className="admin-primary" disabled={saving}><IconDeviceFloppy size={17} stroke={1.8} />{saving ? "保存中…" : "保存"}</button>}{module.key === "news" && id && canPublish && record?.status !== "published" && <button type="button" className="admin-secondary" onClick={publishNews} disabled={saving || dirty}>发布文章</button>}{!isNew && canCreate && ["products","news"].includes(module.key) && <button type="button" className="admin-secondary" onClick={clone} disabled={saving}><IconCopy size={17} stroke={1.8} />复制为草稿</button>}{!isNew && canDelete && <button type="button" className="admin-danger" onClick={remove} disabled={saving}><IconTrash size={17} stroke={1.8} />删除</button>}{!isNew && ["products","news"].includes(module.key) && <a className="admin-secondary" href={`/admin/preview/${module.key}/${id}`} target="_blank"><IconExternalLink size={17} stroke={1.8} />预览内容</a>}</div>
     </form></div></div></div>
   </>;
 }

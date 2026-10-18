@@ -102,7 +102,7 @@ export const modules: Record<string, ModuleDefinition> = {
     search: ["action", "module", "object_id"], columns: ["action", "module", "object_id", "user_id", "success", "created_at"], fields: [] },
   sync: { key: "sync", title: "数据同步", singular: "数据源", table: "sync_sources", nav: true,
     search: ["id", "name_zh"], columns: ["name_zh", "enabled", "frequency_minutes", "last_success_at", "last_error", "next_run_at"],
-    fields: [{ key: "enabled", label: "启用", type: "boolean" }, { key: "frequency_minutes", label: "同步间隔（分钟）", type: "number" }] },
+    fields: [{ key: "enabled", label: "启用", type: "boolean" }] },
   roles: { key: "roles", title: "角色权限", singular: "角色", table: "roles", nav: true,
     search: ["id", "name_zh"], columns: ["id", "name_zh", "permissions", "system_role", "updated_at"],
     fields: [{ key: "id", label: "角色代码", type: "text", required: true }, { key: "name_zh", label: "角色名称", type: "text", required: true }, { key: "permissions", label: "权限设置", type: "json" }] },

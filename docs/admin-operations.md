@@ -4,7 +4,7 @@
 
 Run `pnpm db:migrate` before starting the local app. PGlite is persistent in `.data/postgres`. It must only be opened by one process; stop `pnpm dev` before migration, admin creation or backup. `MAIGE_DATA_DIR` selects an isolated data directory for tests or a second environment.
 
-For Docker, set `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` and a random `CRON_SECRET` of at least 24 characters in an untracked `.env`, then `docker compose up --build -d`. Compose runs the migrator before the app. Its worker calls the protected cron route every five minutes and drains import jobs. PostgreSQL, MinIO and backup data use named Docker volumes. This environment has not been container-tested on the present machine because Docker is unavailable.
+For Docker, set `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` and a random `CRON_SECRET` of at least 24 characters in an untracked `.env`, then `docker compose up --build -d`. Compose runs the migrator before the app. Its worker calls the protected maintenance route hourly and checks the external data sync route daily. PostgreSQL, MinIO and backup data use named Docker volumes. This environment has not been container-tested on the present machine because Docker is unavailable.
 
 ## First administrator
 
@@ -13,11 +13,11 @@ Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm
 ## Vercel deployment and checks
 
 1. The **laike2026** Vercel project `maigebio-com` uses Neon PostgreSQL and private Vercel Blob. Their credentials are scoped to sensitive Production variables. Do not connect the project to `shagaofeng-rgb`.
-2. The empty Neon database received migrations `001` through `012` and the initial `admin` user on 2026-10-15. For future schema changes, back up the database first and apply pending SQL with `DATABASE_URL_UNPOOLED=... pnpm db:migrate`.
+2. The Neon database received migrations `001` through `014` and the initial `admin` user. For future schema changes, back up the database first and apply pending SQL with `DATABASE_URL_UNPOOLED=... pnpm db:migrate`.
 3. Add `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, `IP_HASH_SALT`, `ANALYTICS_HASH_SALT`, GA4 service account variables, Resend variables, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_INDEXABLE`, and the GA4 measurement ID from `.env.example`. `GOOGLE_SERVICE_ACCOUNT_JSON` and Blob/Resend secrets must be Production-only and never use the `NEXT_PUBLIC_` prefix. S3 variables are an alternative for Docker or other hosts.
-4. Verify the Resend sending domain and `info@maigebio.com` recipient. Give the service account viewer access to GA4 property `558913614`. Search Console requires separate site permission and API enablement; its source should stay off until configured.
+4. Verify the Resend sending domain and `info@maigebio.com` recipient. Give the service account viewer access to GA4 property `558913614`. Search Console requires separate site permission and API enablement; its source should be enabled only while those remain valid.
 5. Verify `/api/health`, admin login, media upload, published content API, enquiry persistence/email, tracking consent, sitemap and rollback on Production. A Preview environment needs its own database branch and media store; it must never use Production credentials.
-6. `vercel.json` schedules `/api/cron` every five minutes and `/api/cron/google-sitemap` every Monday at 01:00 UTC (09:00 Asia/Shanghai) on Vercel Production; the platform sends `Authorization: Bearer <CRON_SECRET>`. Verify successful jobs on `/admin/sync`. Sitemap submission needs Search Console write scope and property access. A Docker worker is provided for routine self-hosted jobs.
+6. `vercel.json` schedules `/api/cron` daily at 02:00 UTC for maintenance, `/api/cron/data-sync` daily at 01:00 UTC to check for a 72-hour GA4/Search Console gap, and `/api/cron/google-sitemap` every Monday at 01:00 UTC (09:00 Asia/Shanghai) on Vercel Production. Opening the backend immediately catches up missing reporting days in small batches; the daily check is a fallback. The platform sends `Authorization: Bearer <CRON_SECRET>`. Verify successful jobs on `/admin/sync`. Sitemap submission needs Search Console write scope and property access. A Docker worker is provided for routine self-hosted jobs.
 
 ## Backup and recovery
 

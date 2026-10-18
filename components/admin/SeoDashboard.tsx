@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAdminDate } from "./AdminPreferences";
 import ExportButton from "./ExportButton";
@@ -16,7 +16,8 @@ export default function SeoDashboard({ canExport }: { canExport: boolean }) {
   const formatDate = useAdminDate();
   const [data, setData] = useState<SeoData | null>(null); const [error, setError] = useState("");
   const [start, setStart] = useState(""); const [end, setEnd] = useState("");
-  useEffect(() => { const params = new URLSearchParams(); if (start) params.set("start", start); if (end) params.set("end", end); setError(""); fetch(`/api/admin/seo?${params}`).then(async (r) => { const json = await r.json(); if (!r.ok) throw new Error(json.message || "加载失败"); setData(json); }).catch((e) => { setData(null); setError(e instanceof Error ? e.message : "加载失败"); }); }, [start, end]);
+  const load = useCallback(() => { const params = new URLSearchParams(); if (start) params.set("start", start); if (end) params.set("end", end); setError(""); fetch(`/api/admin/seo?${params}`).then(async (r) => { const json = await r.json(); if (!r.ok) throw new Error(json.message || "加载失败"); setData(json); }).catch((e) => { setData(null); setError(e instanceof Error ? e.message : "加载失败"); }); }, [start, end]);
+  useEffect(() => { load(); window.addEventListener("maige:data-synced", load); return () => window.removeEventListener("maige:data-synced", load); }, [load]);
   return <><div className="admin-page-head"><div><h1>SEO 数据</h1><p>查看搜索表现与网站问题</p></div><div className="admin-quick-links"><Link className="admin-secondary" href="/admin/seo_issues">查看全部问题</Link><Link className="admin-secondary" href="/admin/redirects">管理跳转</Link>{canExport && <ExportButton module="seo_metrics" q="" />}</div></div>
     {error && <p className="admin-error">{error}</p>}
     <div className="admin-panel"><div className="admin-toolbar"><label>开始 <input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>结束 <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><span>{data?.range.start} — {data?.range.end}</span></div></div>

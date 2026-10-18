@@ -181,6 +181,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
   const module = getModule(name);
   if (module.readOnly || ["leads", "media", "sync", "seo_issues"].includes(name)) throw new AdminError("NOT_ALLOWED", "此模块不能手动新增", 405);
   const values = parseInput(module, raw, true);
+  if (name === "news" && values.status === "published") throw new AdminError("MANUAL_PUBLISH_REQUIRED", "请先保存草稿，再点击发布文章", 400);
   if (contentModules.has(name) && values.status === "published" && !canPublish(user, name)) throw new AdminError("PUBLISH_FORBIDDEN", "没有发布权限", 403);
   await validateBusinessRules(name, values);
   if (name === "users") {
@@ -211,7 +212,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
   }
 }
 
-export async function updateRecord(name: string, id: string, raw: unknown, user: AdminUser) {
+export async function updateRecord(name: string, id: string, raw: unknown, user: AdminUser, options: { allowNewsPublish?: boolean } = {}) {
   const module = getModule(name);
   if (module.readOnly) throw new AdminError("NOT_ALLOWED", "只读模块", 405);
   const old = await getRecord(name, id);
@@ -219,6 +220,8 @@ export async function updateRecord(name: string, id: string, raw: unknown, user:
   if (name === "roles" && id === "superadmin") throw new AdminError("PROTECTED_ROLE", "超级管理员权限不能修改", 403);
   if (name === "users" && id === user.id && raw && typeof raw === "object" && (raw as Record<string, unknown>).active === false) throw new AdminError("SELF_DISABLE", "不能停用当前账户");
   const values = parseInput(module, raw, false);
+  if (name === "news" && values.status === "published" && old.status !== "published" && !options.allowNewsPublish) throw new AdminError("MANUAL_PUBLISH_REQUIRED", "请在后台点击发布文章", 400);
+  if (name === "news" && values.status === "published" && old.status !== "published" && !String(old.body_html_en || "").trim()) throw new AdminError("ARTICLE_BODY_REQUIRED", "请先填写并保存文章正文", 400);
   if (contentModules.has(name) && values.status === "published" && !canPublish(user, name)) throw new AdminError("PUBLISH_FORBIDDEN", "没有发布权限", 403);
   await validateBusinessRules(name, values, id);
   if (name === "users") {

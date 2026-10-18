@@ -6,6 +6,7 @@ import LogoutButton from "@/components/admin/LogoutButton";
 import { AdminPreferences } from "@/components/admin/AdminPreferences";
 import { sitePreferences } from "@/lib/admin/site-preferences";
 import AdminNavigation from "@/components/admin/AdminNavigation";
+import AdminSyncOnOpen from "@/components/admin/AdminSyncOnOpen";
 import { IconDeviceDesktop, IconExternalLink, IconUserCircle } from "@tabler/icons-react";
 
 const sections = [
@@ -32,6 +33,6 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const visibleSections = sections.map((section) => ({ ...section, items: section.items.filter((item) => can(user, item.key, "view") || (item.key === "dashboard" && can(user, "dashboard", "view"))) }));
   return <AdminPreferences value={preferences}><div className="admin-app">
     <AdminNavigation sections={visibleSections} />
-    <div className="admin-main"><header className="admin-topbar"><div className="admin-topbar-title"><strong>MAIGE Bio</strong><span>管理中心</span></div><div className="admin-topbar-actions"><Link href="/en" target="_blank"><IconExternalLink size={17} stroke={1.8} aria-hidden="true" />查看网站</Link><Link href="/admin/sessions"><IconDeviceDesktop size={17} stroke={1.8} aria-hidden="true" />登录设备</Link><Link className="admin-account-link" href="/admin/account"><IconUserCircle size={22} stroke={1.7} aria-hidden="true" /><span>{user.display_name}</span></Link><LogoutButton /></div></header><main className="admin-content">{user.must_change_password && <p className="admin-error">首次登录请先<Link href="/admin/change-password">修改密码 →</Link></p>}{children}</main></div>
+    <div className="admin-main"><header className="admin-topbar"><div className="admin-topbar-title"><strong>MAIGE Bio</strong><span>管理中心</span></div><div className="admin-topbar-actions"><AdminSyncOnOpen /><Link href="/en" target="_blank"><IconExternalLink size={17} stroke={1.8} aria-hidden="true" />查看网站</Link><Link href="/admin/sessions"><IconDeviceDesktop size={17} stroke={1.8} aria-hidden="true" />登录设备</Link><Link className="admin-account-link" href="/admin/account"><IconUserCircle size={22} stroke={1.7} aria-hidden="true" /><span>{user.display_name}</span></Link><LogoutButton /></div></header><main className="admin-content">{user.must_change_password && <p className="admin-error">首次登录请先<Link href="/admin/change-password">修改密码 →</Link></p>}{children}</main></div>
   </div></AdminPreferences>;
 }

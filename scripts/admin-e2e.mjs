@@ -99,8 +99,14 @@ try {
   assert.equal((await request(`/api/admin/translations/products/${product.value.id}`, "PUT", { locale: "ar", slug: "qa-product-ar", title: "QA Arabic Product", excerpt: "Arabic summary", html: "<p>Translated</p>", status: "complete", seo: {} })).status, 200);
   assert.equal((await request("/api/public/products/qa-product-ar?locale=ar")).status, 200);
   const history = await request(`/api/admin/products/${product.value.id}/versions`); assert.equal(history.status, 200); assert.ok(history.value.items.length > 0);
-  const news = await request("/api/admin/news", "POST", { title_en: "QA News", slug: "qa-news", status: "published", excerpt_en: "A QA article", body_html_en: "<h2>Article</h2><p>Content</p>" });
+  const newsInput = { title_en: "QA News", slug: "qa-news", excerpt_en: "A QA article", body_html_en: "<h2>Article</h2><p>Content</p>" };
+  assert.equal((await request("/api/admin/news", "POST", { ...newsInput, status: "published" })).status, 400);
+  const news = await request("/api/admin/news", "POST", { ...newsInput, status: "draft" });
   assert.equal(news.status, 201, JSON.stringify(news.value));
+  assert.equal((await request("/api/public/news/qa-news")).status, 404);
+  assert.equal((await request("/en/blog/choosing-dialysis-tubing", "GET", undefined, false)).status, 404, "removed sample article must not be publicly accessible");
+  assert.equal((await request(`/api/admin/news/${news.value.id}`, "PATCH", { status: "published", expectedVersion: news.value.version })).status, 400);
+  assert.equal((await request(`/api/admin/news/${news.value.id}/publish`, "POST", { expectedVersion: news.value.version })).status, 200);
   assert.equal((await request("/api/public/news/qa-news")).status, 200);
   assert.equal((await request(`/api/admin/news/${news.value.id}/relations`, "PUT", { products: [product.value.id] })).status, 200);
   assert.equal((await request(`/api/admin/news/${news.value.id}/relations`)).value.products.length, 1);
@@ -149,6 +155,9 @@ try {
   assert.equal(retention.status, 200, JSON.stringify(retention.value));
   assert.ok(retention.value.results.some((item) => item.source === "retention_cleanup" && item.status === "succeeded"), JSON.stringify(retention.value));
   assert.equal((await request("/api/admin/sync/jobs")).status, 200);
+  const coverage = await request("/api/admin/sync/refresh");
+  assert.equal(coverage.status, 200);
+  assert.ok(coverage.value.progress.some((item) => item.source === "ga4" && item.coveredThrough === "2026-10-13"));
   assert.equal((await request("/api/admin/leads/export")).status, 200);
   const queuedExport = await request("/api/admin/export/jobs", "POST", { module: "leads", q: "QA" });
   assert.equal(queuedExport.status, 202, JSON.stringify(queuedExport.value));

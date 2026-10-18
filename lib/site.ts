@@ -22,8 +22,3 @@ export const applications = [
   { slug: "molecular-biology", key: "molecular", motif: "molecular" },
   { slug: "biopharmaceutical-research", key: "biopharma", motif: "biopharma" },
 ] as const;
-
-export const articles = [
-  { slug: "choosing-dialysis-tubing", key: "articleDialysis" },
-  { slug: "understanding-elisa-workflows", key: "articleElisa" },
-] as const;

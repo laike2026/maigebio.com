@@ -35,6 +35,7 @@ export default function AnalyticsDashboard() {
     finally { setBusy(false); }
   }, [preset, start, end]);
   useEffect(() => { if (preset !== "custom" || (start && end)) void load(); }, [load, preset, start, end]);
+  useEffect(() => { window.addEventListener("maige:data-synced", load); return () => window.removeEventListener("maige:data-synced", load); }, [load]);
   const totals = useMemo(() => {
     const result: Record<string, number> = {};
     for (const event of report?.events || []) result[event.event_name] = (result[event.event_name] || 0) + Number(event.count);
