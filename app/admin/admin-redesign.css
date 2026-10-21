@@ -208,3 +208,7 @@
   .admin-record-preview { padding: 17px; }
   .admin-list-panel .admin-pagination { align-items: flex-start; flex-direction: column; }
 }
+.admin-acquisition-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); align-items: start; }
+.admin-acquisition-grid > div { min-width: 0; }
+.admin-acquisition-grid h3 { font-size: 14px; margin: 0 0 10px; }
+@media (max-width: 760px) { .admin-acquisition-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -1,5 +1,7 @@
 # Local preview QA
 
+> Historical local-preview record from 2026-10-13. Current production findings are in [the 2026-10-21 audit](production-audit-2026-10-21.md).
+
 Date: 2026-10-13 (Asia/Shanghai)
 
 ## Passed

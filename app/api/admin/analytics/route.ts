@@ -38,19 +38,28 @@ export async function GET(request: Request) {
         "SELECT field_name,sum(event_count)::int AS count FROM analytics_daily_summary WHERE day BETWEEN $1::date AND $2::date AND event_name='form_field_complete' GROUP BY field_name ORDER BY count DESC", [start, end]),
       query<{ count: number }>("SELECT count(*)::int AS count FROM form_submissions WHERE (submitted_at AT TIME ZONE $3) >= $1::date AND (submitted_at AT TIME ZONE $3) < ($2::date + interval '1 day') AND deleted_at IS NULL", [start, end, preferences.timezone]),
     ]);
-    let ga4: { status: "unconfigured" | "available" | "error"; totals?: Record<string, number>; daily?: { day: string; users: number; pageViews: number; sessions: number }[]; countries?: { country: string; users: number }[]; message?: string } = { status: "unconfigured" };
+    let ga4: { status: "unconfigured" | "available" | "error"; totals?: Record<string, number>; daily?: { day: string; users: number; pageViews: number; sessions: number }[]; countries?: { country: string; users: number }[]; channels?: { channel: string; sessions: number }[]; sources?: { source: string; channel: string; sessions: number }[]; acquisitionError?: boolean; message?: string } = { status: "unconfigured" };
     if (ga4Configured()) {
       try {
         const period = [{ startDate: start, endDate: end }];
-        const [daily, countries] = await Promise.all([
+        const [dailyResult, countriesResult, acquisitionResult] = await Promise.allSettled([
           ga4Report({ dateRanges: period, dimensions: [{ name: "date" }], metrics: [{ name: "activeUsers" }, { name: "screenPageViews" }, { name: "sessions" }], metricAggregations: ["TOTAL"], limit: 400 }),
           ga4Report({ dateRanges: period, dimensions: [{ name: "country" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: 10 }),
+          ga4Report({ dateRanges: period, dimensions: [{ name: "sessionDefaultChannelGroup" }, { name: "sessionSourceMedium" }], metrics: [{ name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 10000 }),
         ]);
+        if (dailyResult.status === "rejected") throw dailyResult.reason;
+        const daily = dailyResult.value;
+        const countries = countriesResult.status === "fulfilled" ? countriesResult.value : null;
+        const acquisition = acquisitionResult.status === "fulfilled" ? acquisitionResult.value : null;
         const dailyRows = (daily.rows || []).map((row) => ({ day: row.dimensionValues?.[0]?.value || "", users: Number(row.metricValues?.[0]?.value || 0), pageViews: Number(row.metricValues?.[1]?.value || 0), sessions: Number(row.metricValues?.[2]?.value || 0) }));
         const totalMetrics = daily.totals?.[0]?.metricValues;
+        const sources = (acquisition?.rows || []).map((row) => ({ channel: row.dimensionValues?.[0]?.value || "Unassigned", source: row.dimensionValues?.[1]?.value || "(not set)", sessions: Number(row.metricValues?.[0]?.value || 0) }));
+        const channelTotals = new Map<string, number>();
+        for (const source of sources) channelTotals.set(source.channel, (channelTotals.get(source.channel) || 0) + source.sessions);
         ga4 = { status: "available", daily: dailyRows, totals: {
           users: Number(totalMetrics?.[0]?.value || 0), pageViews: Number(totalMetrics?.[1]?.value || 0), sessions: Number(totalMetrics?.[2]?.value || 0),
-        }, countries: (countries.rows || []).map((row) => ({ country: row.dimensionValues?.[0]?.value || "Unknown", users: Number(row.metricValues?.[0]?.value || 0) })) };
+        }, countries: (countries?.rows || []).map((row) => ({ country: row.dimensionValues?.[0]?.value || "Unknown", users: Number(row.metricValues?.[0]?.value || 0) })),
+        channels: [...channelTotals].map(([channel, sessions]) => ({ channel, sessions })).sort((a, b) => b.sessions - a.sessions), sources: sources.slice(0, 20), acquisitionError: acquisitionResult.status === "rejected" };
       } catch (error) { ga4 = { status: "error", message: error instanceof Error ? error.message : "GA4 暂时不可用" }; }
     }
     return Response.json({ range: dates, events: events.rows, fields: fields.rows, submissions: Number(submissions.rows[0]?.count || 0), ga4 });

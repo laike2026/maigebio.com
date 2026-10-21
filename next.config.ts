@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   output: "standalone",
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
+  async redirects() {
+    return [{
+      source: "/:path*",
+      has: [{ type: "host" as const, value: "www.maigebio.com" }],
+      destination: "https://maigebio.com/:path*",
+      permanent: true,
+    }];
+  },
   async headers() {
     return [{
       source: "/:path*",

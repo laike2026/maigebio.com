@@ -26,6 +26,7 @@ const statusLabels: Record<string, string> = {
   new: "新询盘", contacted: "跟进中", qualified: "已确认需求", closed: "已结束", spam: "无效询盘",
   draft: "草稿", review: "待审核", published: "已发布", unlisted: "已下架", archived: "已归档",
   open: "待处理", resolved: "已解决", ignored: "已忽略",
+  pending: "待发邮件", sent: "邮件已发送", failed: "邮件发送失败，等待重试",
 };
 
 function display(value: unknown) {
@@ -64,7 +65,7 @@ export default function AdminRecordPreview({ module, id, canUpdate }: { module: 
           <p><IconMail size={17} /><a href={`mailto:${String(record.email || "")}`}>{display(record.email)}</a></p>
           {Boolean(record.phone) && <p><IconPhone size={17} /><a href={`tel:${String(record.phone)}`}>{display(record.phone)}</a></p>}
         </div>
-        <div className="admin-preview-section"><h3>咨询内容</h3><dl><div><dt>咨询产品</dt><dd>{display(record.product_interest)}</dd></div><div><dt>提交时间</dt><dd><IconCalendar size={16} />{display(record.submitted_at)}</dd></div></dl><p className="admin-preview-message">{display(record.message)}</p></div>
+        <div className="admin-preview-section"><h3>咨询内容</h3><dl><div><dt>咨询产品</dt><dd>{display(record.product_interest)}</dd></div><div><dt>提交时间</dt><dd><IconCalendar size={16} />{display(record.submitted_at)}</dd></div><div><dt>邮件通知</dt><dd>{display(record.notification_status)}</dd></div><div><dt>来源渠道</dt><dd>{display(record.utm_source)}</dd></div></dl><p className="admin-preview-message">{display(record.message)}</p></div>
       </> : <div className="admin-preview-section"><h3>基本信息</h3><dl>{(previewFields[module.key] || module.columns.slice(0, 4).map((key) => ({ key, label: key }))).map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{display(record[field.key])}</dd></div>)}</dl></div>}
       <Link className="admin-primary admin-preview-action" href={`/admin/${module.key}/${id}`}>{canUpdate ? "查看并编辑" : "查看详情"}<IconArrowRight size={17} /></Link>
     </>}

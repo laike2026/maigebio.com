@@ -79,7 +79,7 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
     <div className="honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
     <div className="form-bottom"><label className="consent"><input type="checkbox" name="consent" value="yes" required /> {c.consent} <Link href={href(locale, "/privacy-policy")}>{c.privacyTitle}</Link></label><button className="button button-blue" type="submit" disabled={status === "sending"}>{status === "sending" ? c.sending : c.send}</button></div>
     {status === "success" && <p className="form-feedback success" role="status">{c.formSuccess}</p>}
-    {status === "saved_pending" && <p className="form-feedback success" role="status">{c.formSuccess}</p>}
+    {status === "saved_pending" && <p className="form-feedback" role="status">{c.formPending}</p>}
     {status === "error" && <p className="form-feedback error" role="alert">{c.formError}</p>}
   </form>;
 }
