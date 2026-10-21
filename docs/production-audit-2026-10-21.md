@@ -30,9 +30,11 @@ Scope: public pages on `maigebio.com`, the Chinese administration area, data int
 
 - Next.js 16.3.8 documentation was consulted before editing.
 - TypeScript, production build, translation completeness, 21 local HTTP route checks and dependency audit passed. `pnpm audit --audit-level high` reported no known vulnerabilities.
-- A 308 `www` redirect was verified against the production build locally. The live site remains on the prior deployment until the commit is pushed and Vercel reports Ready.
+- The live `www` host returns HTTP 308 to the apex domain. The production deployment for commit `0c80c4dd765ca7c5ee84b86a100b8afbde4c2552` reached Vercel **READY** under `laike2026`.
 - PageSpeed Insights returned an API rate-limit response during this audit. No Lighthouse or real-user Core Web Vitals score is claimed.
 
-## Deployment verification to record
+## Deployment verification
 
-After Git push and Vercel Ready, verify the deployment commit, apex and `www` response, one route per locale, mobile RTL width, admin analytics source panel, enquiry pending copy, health endpoint, robots and sitemap. Keep the retained test lead and deferred DNS state visible in the handover.
+- Vercel production deployment `dpl_PecPv1UZQAwSA2iu54GMMGjByebT` reports **READY** for the `laike2026/maigebio.com` repository and commit above. The apex `/en`, `/ar`, `/ru` and `/es` routes, `/robots.txt` and `/sitemap.xml` each returned HTTP 200 after deployment.
+- `https://maigebio.com/api/health` returned `{"status":"ok","database":"ok"}`. The live admin analytics page displayed the new traffic-source panel; the retained QA lead appeared with the email failure status.
+- The live Arabic page measured 360 px document width at a 360 px viewport. The production form copy now distinguishes a saved enquiry from a delivered email. DNS validation and a successful email delivery remain open by owner choice.
