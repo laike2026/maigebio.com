@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
-const routes = ["/en", "/ar", "/ru", "/es", "/en/products", "/en/products/dialysis-tubing", "/en/products/elisa-kits", "/en/applications", "/en/about", "/en/manufacturing-quality", "/en/oem-odm", "/en/resources", "/en/blog", "/en/faq", "/en/contact", "/en/privacy-policy", "/en/terms"];
+const routes = ["/en", "/ar", "/ru", "/es", "/en/products", "/en/products/dialysis-tubing", "/en/products/elisa-kits", "/en/products/lab-consumables", "/ar/products/lab-consumables", "/ru/products/lab-consumables", "/es/products/lab-consumables", "/en/applications", "/en/about", "/en/manufacturing-quality", "/en/oem-odm", "/en/resources", "/en/blog", "/en/faq", "/en/contact", "/en/privacy-policy", "/en/terms"];
 
 for (const route of routes) {
   const response = await fetch(`${base}${route}`);

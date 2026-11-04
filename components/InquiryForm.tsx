@@ -73,7 +73,7 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
       <label>{c.company} <b>*</b><input name="company" required maxLength={160} autoComplete="organization" placeholder={c.company} /></label>
       <label>{c.email} <b>*</b><input name="email" required type="email" maxLength={254} autoComplete="email" placeholder={c.email} /></label>
       <label>{c.country} <b>*</b><input name="country" required maxLength={100} autoComplete="country-name" placeholder={c.country} /></label>
-      <label>{c.product} <b>*</b><select name="product" required defaultValue={initialProduct}><option value="">{c.selectProduct}</option><option value="Dialysis Tubing">{c.dialysis}</option><option value="ELISA Kits">{c.elisa}</option><option value="Other">{c.other}</option></select></label>
+      <label>{c.product} <b>*</b><select name="product" required defaultValue={initialProduct}><option value="">{c.selectProduct}</option><option value="Dialysis Tubing">{c.dialysis}</option><option value="ELISA Kits">{c.elisa}</option><option value="Laboratory Consumables">{c.labConsumables}</option><option value="Other">{c.other}</option></select></label>
       <label className="message-field">{c.message} <b>*</b><textarea name="message" rows={3} required minLength={10} maxLength={4000} placeholder={c.message} /></label>
     </div>
     <div className="honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>

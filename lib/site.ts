@@ -12,8 +12,9 @@ export function href(locale: Locale, path = "") {
 }
 
 export const categories = [
-  { slug: "dialysis-tubing", image: "/images/products/dialysis-illustration.png", key: "dialysis" },
-  { slug: "elisa-kits", image: "/images/products/elisa-illustration.png", key: "elisa" },
+  { slug: "dialysis-tubing", image: "/images/products/maige-dry-dialysis-membranes.png", key: "dialysis" },
+  { slug: "elisa-kits", image: "/images/products/maige-elisa-kit.png", key: "elisa" },
+  { slug: "lab-consumables", image: "/images/products/maige-cell-strainers.png", key: "labConsumables" },
 ] as const;
 
 export const applications = [

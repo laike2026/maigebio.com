@@ -25,6 +25,7 @@ export default function PrimaryNavigation({ locale }: { locale: Locale }) {
       { label: c.productCenter, path: "/products" },
       { label: c.dialysis, path: "/products/dialysis-tubing" },
       { label: c.elisa, path: "/products/elisa-kits" },
+      { label: c.labConsumables, path: "/products/lab-consumables" },
     ] },
     { id: "applications", label: c.navApplications, links: [
       { label: c.applications, path: "/applications" },
