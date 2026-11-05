@@ -1,15 +1,135 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Breadcrumb from "@/components/Breadcrumb";
-import { getCopy } from "@/lib/i18n";
-import { applications, href, isLocale, type Locale } from "@/lib/site";
+import { interiorCopy } from "@/lib/interior-copy";
+import { applications, categories, isLocale } from "@/lib/site";
 import { pageMetadata } from "@/lib/seo";
-
-export async function generateStaticParams() { return ["en", "ar", "ru", "es"].flatMap((locale) => applications.map((item) => ({ locale, slug: item.slug }))); }
-export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> { const { locale, slug } = await params; if (!isLocale(locale)) return {}; const item = applications.find((app) => app.slug === slug); if (!item) return {}; const c = getCopy(locale); return pageMetadata(locale, c[item.key], c.applicationsText, `/applications/${slug}`); }
-
-export default async function ApplicationDetail({ params }: { params: Promise<{ locale: string; slug: string }> }) {
-  const { locale: raw, slug } = await params; if (!isLocale(raw)) notFound(); const item = applications.find((app) => app.slug === slug); if (!item) notFound(); const locale: Locale = raw; const c = getCopy(locale);
-  return <div className="interior-page"><div className="interior-banner"><div className="container"><Breadcrumb locale={locale} items={[{ label: c.applications, path: "/applications" }, { label: c[item.key] }]} /><p className="eyebrow">MAIGE / APPLICATIONS</p><h1>{c[item.key]}</h1><p>{c.applicationsText}</p></div></div><div className="container interior-content"><div className="editorial-grid"><div className={`application-art editorial-art ${item.motif}`}><span aria-hidden="true">{item.motif === "protein" ? "◉" : item.motif === "immunology" ? "✣" : item.motif === "molecular" ? "⌬" : "◌"}</span></div><div><h2>{c.productQuestions}</h2><p>{c.productQuestionText}</p><p>{c.contentPending}</p><div className="detail-actions"><Link className="button button-blue" href={href(locale, "/products")}>{c.viewProducts}</Link><Link className="button button-outline" href={href(locale, "/contact")}>{c.askTechnical}</Link></div></div></div></div></div>;
+import {
+  applicationArt,
+  art,
+  InteriorHero,
+  ProductCard,
+  productArt,
+  ResourceRows,
+  ScienceIcon,
+  SupportCTA,
+  Workflow,
+  type IconName,
+} from "@/components/interiors/Interior";
+export async function generateStaticParams() {
+  return ["en", "ar", "ru", "es"].flatMap((locale) =>
+    applications.map((item) => ({ locale, slug: item.slug })),
+  );
+}
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}): Promise<Metadata> {
+  const { locale, slug } = await params;
+  if (!isLocale(locale)) return {};
+  const item = applications.find((x) => x.slug === slug);
+  if (!item) return {};
+  const c = interiorCopy(locale);
+  return pageMetadata(locale, c[item.key], c.applicationsText, `/applications/${slug}`);
+}
+export default async function ApplicationDetail({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}) {
+  const { locale, slug } = await params;
+  if (!isLocale(locale)) notFound();
+  const item = applications.find((x) => x.slug === slug);
+  if (!item) notFound();
+  const c = interiorCopy(locale);
+  const workflow =
+    item.motif === "protein"
+      ? ["samplePrep", "bufferExchange", "analysis"]
+      : item.motif === "immunology"
+        ? ["samplePrep", "reagent", "analysis"]
+        : item.motif === "molecular"
+          ? ["samplePrep", "filtration", "analysis"]
+          : ["requirements", "faqSelection", "documentation", "communication"];
+  const icons: IconName[] =
+    item.motif === "biopharma"
+      ? ["review", "flask", "document", "support"]
+      : ["sample", item.motif === "protein" ? "filter" : "flask", "microscope"];
+  const selected = categories.filter((x) =>
+    item.motif === "immunology"
+      ? x.slug === "elisa-kits"
+      : item.motif === "molecular"
+        ? x.slug === "lab-consumables"
+        : item.motif === "protein"
+          ? x.slug !== "elisa-kits"
+          : x.slug !== "lab-consumables",
+  );
+  const factors =
+    item.motif === "protein"
+      ? [
+          ["volume", "sample"],
+          ["MWCO", "layers"],
+          ["compatibility", "flask"],
+        ]
+      : item.motif === "immunology"
+        ? [
+            ["target", "target"],
+            ["species", "dna"],
+            ["sample", "drop"],
+          ]
+        : [
+            ["sample", "sample"],
+            ["format", "layers"],
+            ["documentation", "document"],
+          ];
+  return (
+    <div className="mi-page mi-application-detail">
+      <InteriorHero
+        locale={locale}
+        title={c[item.key]}
+        intro={c.applicationsText}
+        image={applicationArt[item.motif]}
+        crumbs={[{ label: c.applications, path: "/applications" }, { label: c[item.key] }]}
+      />
+      <div className="container mi-content">
+        <Workflow
+          title={c.workflow}
+          items={workflow.map((key, i) => ({ title: c[key], icon: icons[i] }))}
+        />
+        <section className="mi-section">
+          <h2>{c.workflowTitle}</h2>
+          <div className="mi-product-grid">
+            {selected.map((x) => (
+              <ProductCard
+                locale={locale}
+                key={x.slug}
+                title={c[x.key]}
+                summary={c[x.key + "Text"]}
+                image={art(productArt[x.slug])}
+                path={`/products/${x.slug}`}
+              />
+            ))}
+          </div>
+        </section>
+        <section className="mi-section">
+          <h2>{c.considerations}</h2>
+          <ul className="mi-considerations">
+            {factors.map(([key, icon]) => (
+              <li key={key}>
+                <ScienceIcon name={icon as IconName} size={36} />
+                <div>
+                  <h3>{c[key] || key}</h3>
+                  <p>{c.specHelp}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <h2>{c.resources}</h2>
+          <ResourceRows locale={locale} small />
+        </section>
+        <SupportCTA locale={locale} />
+      </div>
+    </div>
+  );
 }

@@ -1,32 +1,159 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Breadcrumb from "@/components/Breadcrumb";
-import { getCopy } from "@/lib/i18n";
-import { categories, href, isLocale, type Locale } from "@/lib/site";
+import { categories, href, isLocale } from "@/lib/site";
+import { interiorCopy } from "@/lib/interior-copy";
 import { pageMetadata } from "@/lib/seo";
 import { publishedCategories, publishedProducts } from "@/lib/public-content";
-
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
-  const { locale } = await params; if (!isLocale(locale)) return {};
-  const c = getCopy(locale); return pageMetadata(locale, c.productCenter, c.productIntro, "/products");
+import {
+  art,
+  InteriorHero,
+  ProductCard,
+  productArt,
+  ScienceIcon,
+  SupportCTA,
+} from "@/components/interiors/Interior";
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) return {};
+  const c = interiorCopy(locale);
+  return pageMetadata(locale, c.productCenter, c.productIntro, "/products");
 }
-
-export default async function Products({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ q?: string; category?: string }> }) {
-  const { locale: raw } = await params; if (!isLocale(raw)) notFound();
-  const locale: Locale = raw; const c = getCopy(locale);
-  const { q = "", category = "" } = await searchParams; const search = q.trim().toLocaleLowerCase();
-  const [dbCategories, dbProducts] = await Promise.all([publishedCategories(), publishedProducts(locale, { q, category, size: 100 })]);
-  const existing = categories.filter((item) => !dbCategories.some((managed) => managed.slug === item.slug) && (!category || category === item.slug) && (!search || `${c[item.key]} ${c[`${item.key}Text`]} ${item.slug}`.toLocaleLowerCase().includes(search)));
-  const addedCategories = dbCategories.filter((item) => (!category || item.slug === category) && (!search || `${item.name} ${item.summary}`.toLowerCase().includes(search)));
-  const hasResults = Boolean(existing.length || addedCategories.length || dbProducts.length);
-  return <div className="interior-page"><div className="interior-banner"><div className="container"><Breadcrumb locale={locale} items={[{ label: c.productCenter }]} /><p className="eyebrow">MAIGE / PRODUCTS</p><h1>{c.productCenter}</h1><p>{c.productIntro}</p></div></div>
-    <div className="container interior-content"><form className="product-filter" action={href(locale, "/products")}><input type="search" name="q" defaultValue={q} placeholder={c.searchPlaceholder} aria-label={c.search} /><select name="category" defaultValue={category} aria-label={c.allProducts}><option value="">{c.allProducts}</option>{categories.filter((item) => !dbCategories.some((managed) => managed.slug === item.slug)).map((item) => <option key={item.slug} value={item.slug}>{c[item.key]}</option>)}{dbCategories.map((item) => <option key={item.slug} value={item.slug}>{item.name}</option>)}</select><button className="button button-blue" type="submit">{c.searchProducts}</button>{(q || category) && <Link href={href(locale, "/products")}>{c.clearSearch}</Link>}</form>
-    {search && <h2 className="results-heading">{c.searchResults}: “{q}”</h2>}
-    {hasResults ? <div className="catalog-grid">
-      {existing.map((item) => <article key={item.slug} className="catalog-card"><Link href={href(locale, `/products/${item.slug}`)}><Image src={item.image} width={600} height={400} alt="" /><div><p className="card-kicker">MAIGE / RESEARCH</p><h2>{c[item.key]}</h2><p>{c[`${item.key}Text`]}</p><span className="text-link">{c.viewDetails} →</span></div></Link></article>)}
-      {addedCategories.map((item) => <article key={item.id} className="catalog-card"><Link href={href(locale, `/products/${item.slug}`)}>{item.image_url ? <Image src={item.image_url} width={600} height={400} alt={item.name} /> : <div className="editorial-art" aria-hidden="true" />}<div><p className="card-kicker">MAIGE / CATEGORY</p><h2>{item.name}</h2><p>{item.summary}</p><span className="text-link">{c.viewDetails} →</span></div></Link></article>)}
-      {dbProducts.map((item) => <article key={item.id} className="catalog-card"><Link href={href(locale, `/products/${item.slug}`)}>{item.image_url ? <Image src={item.image_url} width={600} height={400} alt={item.name} /> : <div className="editorial-art" aria-hidden="true" />}<div><p className="card-kicker">MAIGE / {item.sku}</p><h2>{item.name}</h2><p>{item.summary}</p><span className="text-link">{c.viewDetails} →</span></div></Link></article>)}
-    </div> : <div className="empty-state"><h2>{c.noResults}</h2><Link className="button button-blue" href={href(locale, "/contact")}>{c.askTechnical}</Link></div>}</div></div>;
+export default async function Products({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string; category?: string }>;
+}) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  const c = interiorCopy(locale);
+  const { q = "", category = "" } = await searchParams;
+  const search = q.trim().toLowerCase();
+  const [dbCategories, products] = await Promise.all([
+    publishedCategories(),
+    publishedProducts(locale, { q, category, size: 100 }),
+  ]);
+  const families = categories.map((item) => ({
+    slug: item.slug,
+    name: c[item.key],
+    summary: c[item.key + "Text"],
+    image: art(productArt[item.slug]),
+  }));
+  const allCategories = [
+    ...families,
+    ...dbCategories
+      .filter((x) => !families.some((f) => f.slug === x.slug))
+      .map((x) => ({ ...x, image: x.image_url || art("molecule-hero") })),
+  ];
+  const shown = allCategories.filter(
+    (x) =>
+      (!category || x.slug === category) &&
+      (!search || `${x.name} ${x.summary} ${x.slug}`.toLowerCase().includes(search)),
+  );
+  return (
+    <div className="mi-page">
+      <InteriorHero
+        locale={locale}
+        title={c.productHeading}
+        intro={c.productIntro}
+        crumbs={[{ label: c.productCenter }]}
+        image="molecule-hero"
+      />
+      <div className="container mi-content">
+        <form className="mi-search" action={href(locale, "/products")}>
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder={c.searchPlaceholder}
+            aria-label={c.search}
+          />
+          <select name="category" defaultValue={category} aria-label={c.browseCategories}>
+            <option value="">{c.allProducts}</option>
+            {allCategories.map((x) => (
+              <option value={x.slug} key={x.slug}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+          <button className="button button-blue">{c.searchProducts}</button>
+        </form>
+        <div className="mi-family-links">
+          {families.map((x, i) => (
+            <Link href={href(locale, `/products/${x.slug}`)} key={x.slug}>
+              <ScienceIcon name={(["layers", "flask", "filter"] as const)[i]} size={36} />
+              {x.name}
+              <ScienceIcon name="arrow" size={19} />
+            </Link>
+          ))}
+        </div>
+        <div className="mi-catalog-layout">
+          <aside className="mi-sidebar">
+            <h2>{c.browseCategories}</h2>
+            <Link href={href(locale, "/products")} aria-current={!category ? "page" : undefined}>
+              {c.allProducts}
+            </Link>
+            {allCategories.map((x) => (
+              <Link
+                href={href(locale, "/products") + `?category=${encodeURIComponent(x.slug)}`}
+                aria-current={category === x.slug ? "page" : undefined}
+                key={x.slug}
+              >
+                {x.name}
+              </Link>
+            ))}
+          </aside>
+          <section className="mi-catalog-results">
+            <h2>{search ? `${c.searchResults}: “${q}”` : c.browseProducts}</h2>
+            {(search || category) && (
+              <p>
+                <Link className="mi-text-link" href={href(locale, "/products")}>
+                  {c.clearSearch}
+                </Link>
+              </p>
+            )}
+            {shown.map((x) => (
+              <ProductCard
+                locale={locale}
+                title={x.name}
+                summary={x.summary}
+                image={x.image}
+                path={`/products/${x.slug}`}
+                key={x.slug}
+                row
+              />
+            ))}
+            {products.map((x) => (
+              <ProductCard
+                locale={locale}
+                title={x.name}
+                summary={x.summary}
+                image={x.image_url || art(productArt[x.category_slug || ""] || "lab-hero")}
+                path={`/products/${x.slug}`}
+                sku={x.sku}
+                key={x.id}
+                row
+              />
+            ))}
+            {!shown.length && !products.length && (
+              <div className="mi-empty">
+                <ScienceIcon name="microscope" size={45} />
+                <h2>{c.noResults}</h2>
+                <Link className="button button-green" href={href(locale, "/contact")}>
+                  {c.askTechnical}
+                </Link>
+              </div>
+            )}
+          </section>
+        </div>
+        <SupportCTA locale={locale} />
+      </div>
+    </div>
+  );
 }

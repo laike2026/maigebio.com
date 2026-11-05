@@ -6,14 +6,30 @@ import { href, type Locale } from "@/lib/site";
 import Link from "next/link";
 import { trackEvent, trackingAllowed } from "@/lib/tracking";
 
-export default function InquiryForm({ locale, initialProduct = "", productName = "" }: { locale: Locale; initialProduct?: string; productName?: string }) {
+export default function InquiryForm({ locale, initialProduct = "", productName = "", initialMessage = "" }: { locale: Locale; initialProduct?: string; productName?: string; initialMessage?: string }) {
   const c = getCopy(locale);
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "saved_pending" | "error">("idle");
   const formRef = useRef<HTMLFormElement>(null);
+  const selectedSpecs = useRef("");
   const viewed = useRef(false);
   const started = useRef(false);
   const completedFields = useRef(new Set<string>());
   const formId = initialProduct ? "product_inquiry" : "contact";
+
+  useEffect(() => {
+    const fill = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      const input = formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="message"]');
+      if (input && detail?.message) {
+        const notes = selectedSpecs.current ? input.value.replace(selectedSpecs.current, "").trim() : input.value.trim();
+        input.value = [detail.message, notes].filter(Boolean).join("\n\n");
+        selectedSpecs.current = detail.message;
+        input.focus({ preventScroll: true });
+      }
+    };
+    window.addEventListener("maige-spec-selection", fill);
+    return () => window.removeEventListener("maige-spec-selection", fill);
+  }, []);
 
   useEffect(() => {
     const form = formRef.current;
@@ -74,7 +90,7 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
       <label>{c.email} <b>*</b><input name="email" required type="email" maxLength={254} autoComplete="email" placeholder={c.email} /></label>
       <label>{c.country} <b>*</b><input name="country" required maxLength={100} autoComplete="country-name" placeholder={c.country} /></label>
       <label>{c.product} <b>*</b><select name="product" required defaultValue={initialProduct}><option value="">{c.selectProduct}</option><option value="Dialysis Tubing">{c.dialysis}</option><option value="ELISA Kits">{c.elisa}</option><option value="Laboratory Consumables">{c.labConsumables}</option><option value="Other">{c.other}</option></select></label>
-      <label className="message-field">{c.message} <b>*</b><textarea name="message" rows={3} required minLength={10} maxLength={4000} placeholder={c.message} /></label>
+      <label className="message-field">{c.message} <b>*</b><textarea name="message" rows={3} required minLength={10} maxLength={4000} placeholder={c.message} defaultValue={initialMessage} /></label>
     </div>
     <div className="honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
     <div className="form-bottom"><label className="consent"><input type="checkbox" name="consent" value="yes" required /> {c.consent} <Link href={href(locale, "/privacy-policy")}>{c.privacyTitle}</Link></label><button className="button button-blue" type="submit" disabled={status === "sending"}>{status === "sending" ? c.sending : c.send}</button></div>

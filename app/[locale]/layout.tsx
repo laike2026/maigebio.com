@@ -4,6 +4,7 @@ import SiteShell from "@/components/SiteShell";
 import { getCopy } from "@/lib/i18n";
 import { isLocale, locales, type Locale } from "@/lib/site";
 import "../globals.css";
+import "../interiors.css";
 
 export function generateStaticParams() { return locales.map((locale) => ({ locale })); }
 
