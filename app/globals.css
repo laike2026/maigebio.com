@@ -44,10 +44,34 @@ html[dir="rtl"] .hero-art{inset-inline-start:0;inset-inline-end:auto;transform:s
 .nav-trigger[aria-expanded="true"] .nav-chevron,.language-switcher>button[aria-expanded="true"] .chevron{transform:rotate(180deg)}
 .nav-menu{z-index:3}
 .nav-menu:before{display:none}
+.desktop-nav .nav-menu,
+.mobile-menu > nav {
+  background: #f8fcff;
+  border: 1px solid rgba(86, 130, 168, .22);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(8, 53, 105, .15);
+}
+@supports ((backdrop-filter: blur(16px)) or (-webkit-backdrop-filter: blur(16px))) {
+  .desktop-nav .nav-menu,
+  .mobile-menu > nav {
+    background: rgba(248, 252, 255, .8);
+    -webkit-backdrop-filter: blur(16px) saturate(145%);
+    backdrop-filter: blur(16px) saturate(145%);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .desktop-nav .nav-menu,
+  .mobile-menu > nav {
+    background: #f8fcff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
 .nav-menu a:focus-visible,.language-options a:focus-visible{background:#edf6ff;color:var(--blue)}
 .mobile-menu-toggle{border:0;padding:4px;background:none;color:var(--navy);font-size:1.65rem;line-height:1;cursor:pointer}
 @media(max-width:900px){
   .mobile-menu>nav{z-index:5}
+  .mobile-menu .nav-menu{background:transparent}
   .mobile-menu nav>.nav-drop>.nav-trigger{display:flex;justify-content:space-between;width:100%;padding:8px;text-align:start;font-size:.9rem}
   .mobile-menu .nav-menu a{display:block}
 }
