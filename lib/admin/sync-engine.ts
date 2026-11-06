@@ -1,9 +1,9 @@
 import "server-only";
-import { GoogleAuth } from "google-auth-library";
-import { sendInquiryNotification } from "@/app/api/inquiry/route";
+import { sendInquiryNotification } from "@/lib/inquiry-notification";
 import { query, transaction } from "@/lib/db";
 import { runDataChunk } from "@/lib/admin/data-sync";
-import { getSeoSettings } from "@/lib/seo-settings";
+import { recoverInterruptedJobs } from "@/lib/admin/sync-queue";
+import { verifyGoogleSearch } from "@/lib/admin/google-search-status";
 
 type Source = "ga4" | "search_console" | "seo_audit" | "google_sitemap" | "email_retry" | "retention_cleanup";
 const sources: Source[] = ["ga4", "search_console", "seo_audit", "google_sitemap", "email_retry", "retention_cleanup"];
@@ -22,21 +22,7 @@ export async function scheduleDueJobs() {
 }
 
 async function runGoogleSitemap() {
-  const settings = await getSeoSettings();
-  if (!settings.indexingEnabled || !settings.sitemapEnabled || process.env.NEXT_PUBLIC_INDEXABLE !== "true") throw new Error("SITEMAP_DISABLED");
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!site || !/^https:\/\//.test(site)) throw new Error("SITEMAP_SITE_NOT_CONFIGURED");
-  const sitemapUrl = new URL("/sitemap.xml", site).toString();
-  const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON) : undefined;
-  if (!credentials && !process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("SEARCH_CONSOLE_NOT_CONFIGURED");
-  const auth = new GoogleAuth({ credentials, keyFilename: credentials ? undefined : process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    scopes: ["https://www.googleapis.com/auth/webmasters"] });
-  const client = await auth.getClient();
-  const token = await client.getAccessToken();
-  if (!token.token) throw new Error("SEARCH_CONSOLE_TOKEN_UNAVAILABLE");
-  const endpoint = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(settings.searchConsoleProperty)}/sitemaps/${encodeURIComponent(sitemapUrl)}`;
-  const response = await fetch(endpoint, { method: "PUT", headers: { Authorization: `Bearer ${token.token}` }, cache: "no-store", signal: AbortSignal.timeout(20_000) });
-  if (!response.ok) throw new Error(`GOOGLE_SITEMAP_HTTP_${response.status}`);
+  await verifyGoogleSearch(true);
   return 1;
 }
 
@@ -106,28 +92,45 @@ async function runRetentionCleanup() {
   return cleared.reduce((total, item) => total + item.rowCount, 0);
 }
 
-export async function runDueJobs(limit = 10, onlySource?: string) {
+export async function runDueJobs(limit = 10, onlySource?: string, enabledOnly = false) {
   const outcomes: { source: string; status: string; processed: number; error?: string }[] = [];
+  await recoverInterruptedJobs({ query }, onlySource);
   for (let i = 0; i < Math.min(limit, 25); i++) {
     const claim = await query<{ id: string; source_id: Source; idempotency_key: string; attempt: number; max_attempts: number }>(
-      `UPDATE sync_jobs SET status='running',attempt=attempt+1,started_at=now()
-       WHERE id=(SELECT id FROM sync_jobs WHERE status IN ('pending','failed') AND run_after<=now() AND attempt<max_attempts AND ($1::text IS NULL OR source_id=$1) ORDER BY run_after,created_at LIMIT 1 FOR UPDATE SKIP LOCKED)
-       RETURNING id,source_id,idempotency_key,attempt,max_attempts`, [onlySource || null]);
+      `UPDATE sync_jobs SET status='running',attempt=attempt+1,started_at=now(),finished_at=NULL
+       WHERE id=(SELECT j.id FROM sync_jobs j JOIN sync_sources s ON s.id=j.source_id
+         WHERE j.status IN ('pending','failed') AND j.run_after<=now() AND j.attempt<j.max_attempts
+           AND ($1::text IS NULL OR j.source_id=$1) AND (NOT $2::boolean OR s.enabled)
+           AND NOT EXISTS (SELECT 1 FROM sync_jobs active WHERE active.source_id=j.source_id AND active.status='running')
+         ORDER BY j.run_after,j.created_at LIMIT 1 FOR UPDATE OF s,j SKIP LOCKED)
+       RETURNING id,source_id,idempotency_key,attempt,max_attempts`, [onlySource || null, enabledOnly]);
     const job = claim.rows[0];
     if (!job) break;
     try {
       const processed = job.source_id === "ga4" || job.source_id === "search_console" ? await runDataChunk(job.source_id)
         : job.source_id === "seo_audit" ? await runSeoAudit() : job.source_id === "google_sitemap" ? await runGoogleSitemap()
         : job.source_id === "email_retry" ? await runEmailRetry(job.idempotency_key) : job.source_id === "retention_cleanup" ? await runRetentionCleanup() : 0;
-      await query("UPDATE sync_jobs SET status='succeeded',finished_at=now(),duration_ms=(extract(epoch from now()-started_at)*1000)::int,processed_count=$2,error_code=NULL,error_detail=NULL WHERE id=$1", [job.id, processed]);
-      await query("UPDATE sync_sources SET last_success_at=now(),last_error=NULL,next_run_at=CASE WHEN id IN ('ga4','search_console') THEN now()+interval '72 hours' ELSE next_run_at END,updated_at=now() WHERE id=$1", [job.source_id]);
-      outcomes.push({ source: job.source_id, status: "succeeded", processed });
+      const finished = await transaction(async (tx) => {
+        const updated = await tx.query(`UPDATE sync_jobs SET status='succeeded',finished_at=now(),
+          duration_ms=(extract(epoch from now()-started_at)*1000)::int,processed_count=$2,error_code=NULL,error_detail=NULL
+          WHERE id=$1 AND attempt=$3 AND status='running'`, [job.id, processed, job.attempt]);
+        if (updated.rowCount) await tx.query("UPDATE sync_sources SET last_success_at=now(),last_error=NULL,next_run_at=CASE WHEN id IN ('ga4','search_console') THEN now()+interval '72 hours' ELSE next_run_at END,updated_at=now() WHERE id=$1", [job.source_id]);
+        return updated.rowCount > 0;
+      });
+      if (finished) outcomes.push({ source: job.source_id, status: "succeeded", processed });
     } catch (error) {
-      const code = error instanceof Error ? error.message.slice(0, 100) : "UNKNOWN";
+      const reason = error instanceof Error ? error.message : "";
+      const code = /^[A-Z0-9_]{1,100}$/.test(reason) || /^email_[a-z_]+$/.test(reason) ? reason : "SYNC_PROVIDER_ERROR";
       const delay = Math.min(3600, 30 * 2 ** Math.min(7, job.attempt));
-      await query("UPDATE sync_jobs SET status='failed',finished_at=now(),duration_ms=(extract(epoch from now()-started_at)*1000)::int,error_code=$2,error_detail=$2,run_after=now()+($3::text || ' seconds')::interval WHERE id=$1", [job.id, code, delay]);
-      await query("UPDATE sync_sources SET last_error=$2,updated_at=now() WHERE id=$1", [job.source_id, code]);
-      outcomes.push({ source: job.source_id, status: "failed", processed: 0, error: code });
+      const failed = await transaction(async (tx) => {
+        const updated = await tx.query(`UPDATE sync_jobs SET status='failed',finished_at=now(),
+          duration_ms=(extract(epoch from now()-started_at)*1000)::int,error_code=$2,error_detail=$2,
+          run_after=now()+($3::text || ' seconds')::interval WHERE id=$1 AND attempt=$4 AND status='running'`,
+          [job.id, code, delay, job.attempt]);
+        if (updated.rowCount) await tx.query("UPDATE sync_sources SET last_error=$2,updated_at=now() WHERE id=$1", [job.source_id, code]);
+        return updated.rowCount > 0;
+      });
+      if (failed) outcomes.push({ source: job.source_id, status: "failed", processed: 0, error: code });
     }
   }
   return outcomes;

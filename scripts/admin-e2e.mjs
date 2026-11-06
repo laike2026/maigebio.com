@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, realpath, rm } from "node:fs/promises";
+import { join, sep } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import ExcelJS from "exceljs";
+import { PGlite } from "@electric-sql/pglite";
 
 const root = process.cwd();
 const data = join(root, ".data", `admin-e2e-${randomUUID()}`);
@@ -11,7 +12,14 @@ const port = 3127;
 const base = `http://127.0.0.1:${port}`;
 const initialPassword = randomBytes(6).toString("base64url");
 const password = randomBytes(6).toString("base64url");
-const env = { ...process.env, MAIGE_DATA_DIR: data, ADMIN_EMAIL: "qa-admin@maigebio.local", ADMIN_PASSWORD: initialPassword, ADMIN_NAME: "QA Admin" };
+const env = {
+  ...process.env, NODE_ENV: "development", MAIGE_DATA_DIR: data,
+  NEXT_PUBLIC_SITE_URL: base, NEXT_PUBLIC_INDEXABLE: "true", NEXT_TELEMETRY_DISABLED: "1",
+  DATABASE_URL: "", DATABASE_URL_UNPOOLED: "", RESEND_API_KEY: "", BLOB_READ_WRITE_TOKEN: "",
+  S3_BUCKET: "", S3_ENDPOINT: "", S3_ACCESS_KEY_ID: "", S3_SECRET_ACCESS_KEY: "",
+  GOOGLE_SERVICE_ACCOUNT_JSON: "", GOOGLE_APPLICATION_CREDENTIALS: "", GA4_PROPERTY_ID: "",
+  ADMIN_EMAIL: "qa-admin@maigebio.local", ADMIN_USERNAME: "admin", ADMIN_PASSWORD: initialPassword, ADMIN_NAME: "QA Admin",
+};
 
 function command(path) {
   const run = spawnSync(process.execPath, [path], { cwd: root, env, encoding: "utf8" });
@@ -19,7 +27,11 @@ function command(path) {
 }
 command("scripts/db-migrate.mjs");
 command("scripts/create-admin.mjs");
-const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: root, env: { ...env, NEXT_PUBLIC_INDEXABLE: "false" }, stdio: ["ignore", "pipe", "pipe"] });
+const fixture = new PGlite(join(data, "postgres"));
+try {
+  await fixture.query("INSERT INTO sync_jobs(source_id,idempotency_key,status,attempt,started_at) VALUES('ga4','qa-interrupted','running',1,now()-interval '10 minutes')");
+} finally { await fixture.close(); }
+const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: root, env, stdio: ["ignore", "pipe", "pipe"] });
 let logs = "";
 server.stdout.on("data", (chunk) => { logs = (logs + chunk.toString()).slice(-4000); });
 server.stderr.on("data", (chunk) => { logs = (logs + chunk.toString()).slice(-4000); });
@@ -47,12 +59,16 @@ async function request(path, method = "GET", body, auth = true) {
 
 try {
   await waitReady();
+  assert.equal((await request("/admin", "GET", undefined, false)).status, 307);
   assert.equal((await request("/api/admin/products", "GET", undefined, false)).status, 401);
+  assert.equal((await request("/api/admin/media/upload", "POST", new FormData(), false)).status, 401);
+  assert.equal((await request("/api/admin/sync/google", "GET", undefined, false)).status, 401);
   assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "admin", password: "wrong" }, false)).status, 401);
   const firstLogin = await request("/api/admin/auth/login", "POST", { identifier: "admin", password: initialPassword }, false);
   assert.equal(firstLogin.status, 200);
   assert.equal(firstLogin.value.redirect, "/admin/change-password");
   assert.equal((await request("/api/admin/products")).status, 403, "initial password must be changed");
+  assert.equal((await request("/api/admin/sync/refresh", "POST", {})).status, 403);
   assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: "1234567" })).status, 400);
   assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: password })).status, 200);
   assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin@maigebio.local", password }, false)).status, 200);
@@ -79,9 +95,16 @@ try {
   const category = await request("/api/admin/categories", "POST", { name_en: "QA Category", slug: "qa-category", enabled: true });
   assert.equal(category.status, 201, JSON.stringify(category.value));
   const image = await readFile("public/images/brand/maige-horizontal.png");
+  const invalidFile = new FormData();
+  invalidFile.append("file", new File(["not a PNG"], "wrong.png", { type: "image/png" }));
+  assert.ok([400, 415].includes((await request("/api/admin/media/upload", "POST", invalidFile)).status));
   const form = new FormData(); form.append("file", new File([image], "maige-horizontal.png", { type: "image/png" }));
   const media = await request("/api/admin/media/upload", "POST", form); assert.equal(media.status, 201, JSON.stringify(media.value));
   assert.equal((await request(media.value.url)).status, 200);
+  const documentForm = new FormData();
+  documentForm.append("file", new File(["%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"], "qa-datasheet.pdf", { type: "application/pdf" }));
+  const datasheet = await request("/api/admin/media/upload", "POST", documentForm);
+  assert.equal(datasheet.status, 201);
   const product = await request("/api/admin/products", "POST", {
     name_en: "QA Product", sku: "QA-001", slug: "qa-product", primary_category_id: category.value.id, media_id: media.value.id,
     status: "draft", summary_en: "Research sample", description_html_en: "<p>Safe <strong>content</strong></p><script>alert(1)</script>", seo: { title: "QA Product SEO" },
@@ -90,15 +113,37 @@ try {
   assert.equal((await request("/api/public/products/qa-product")).status, 404);
   assert.equal((await request(`/api/admin/products/${product.value.id}`, "PATCH", { status: "published", expectedVersion: product.value.version })).status, 200);
   assert.equal((await request("/api/public/products/qa-product")).status, 200);
-  assert.equal((await request(`/api/admin/products/${product.value.id}/relations`, "PUT", { categories: [category.value.id], media: [media.value.id] })).status, 200);
+  assert.equal((await request(`/api/admin/products/${product.value.id}/relations`, "PUT", { categories: [category.value.id], media: [media.value.id, datasheet.value.id] })).status, 200);
   const relations = await request(`/api/admin/products/${product.value.id}/relations`);
-  assert.equal(relations.value.media.length, 1);
+  assert.equal(relations.value.media.length, 2);
+  const productWithDownload = await request("/en/products/qa-product", "GET", undefined, false);
+  assert.match(productWithDownload.value, /download="qa-datasheet.pdf"/);
+  assert.match(productWithDownload.value, /Request technical documents/);
   const clone = await request(`/api/admin/products/${product.value.id}/clone`, "POST", {});
   assert.equal(clone.status, 201, JSON.stringify(clone.value)); assert.equal(clone.value.status, "draft");
-  assert.equal((await request(`/api/admin/products/${clone.value.id}/relations`)).value.media.length, 1);
+  assert.equal((await request(`/api/admin/products/${clone.value.id}/relations`)).value.media.length, 2);
   assert.equal((await request(`/api/admin/translations/products/${product.value.id}`, "PUT", { locale: "ar", slug: "qa-product-ar", title: "QA Arabic Product", excerpt: "Arabic summary", html: "<p>Translated</p>", status: "complete", seo: {} })).status, 200);
   assert.equal((await request("/api/public/products/qa-product-ar?locale=ar")).status, 200);
+  const alias = await request("/ar/products/qa-product", "GET", undefined, false);
+  assert.equal(alias.status, 308);
+  const translated = await request("/ar/products/qa-product-ar", "GET", undefined, false);
+  assert.equal(translated.status, 200);
+  assert.match(translated.value, /rel="canonical" href="[^"]+\/ar\/products\/qa-product-ar"/);
+  assert.match(translated.value, /"@type":"Product"/);
+  const spanishFallback = await request("/es/products/qa-product", "GET", undefined, false);
+  assert.match(spanishFallback.value, /name="robots" content="noindex, follow"/);
+  const publicSitemap = await request("/sitemap.xml", "GET", undefined, false);
+  assert.match(publicSitemap.value, /<loc>[^<]+\/ar\/products\/qa-product-ar<\/loc>/);
+  assert.doesNotMatch(publicSitemap.value, /<loc>[^<]+\/ar\/products\/qa-product<\/loc>/);
+  assert.doesNotMatch(publicSitemap.value, /<loc>[^<]+\/es\/products\/qa-product<\/loc>/);
   const history = await request(`/api/admin/products/${product.value.id}/versions`); assert.equal(history.status, 200); assert.ok(history.value.items.length > 0);
+  const currentProduct = await request(`/api/admin/products/${product.value.id}`);
+  assert.equal((await request(`/api/admin/products/${product.value.id}`, "PATCH", { expectedVersion: currentProduct.value.version, seo: { noindex: true } })).status, 200);
+  const hiddenProduct = await request("/en/products/qa-product", "GET", undefined, false);
+  assert.match(hiddenProduct.value, /name="robots" content="noindex, nofollow"/);
+  const changedSitemap = await request("/sitemap.xml", "GET", undefined, false);
+  assert.doesNotMatch(changedSitemap.value, /<loc>[^<]+\/en\/products\/qa-product<\/loc>/);
+  assert.match(changedSitemap.value, /<loc>[^<]+\/ar\/products\/qa-product-ar<\/loc>/);
   const newsInput = { title_en: "QA News", slug: "qa-news", excerpt_en: "A QA article", body_html_en: "<h2>Article</h2><p>Content</p>" };
   assert.equal((await request("/api/admin/news", "POST", { ...newsInput, status: "published" })).status, 400);
   const news = await request("/api/admin/news", "POST", { ...newsInput, status: "draft" });
@@ -136,11 +181,22 @@ try {
   const manyCsvDownload = await request(`/api/admin/export/jobs/${manyExport.value.jobId}/download`);
   assert.equal(manyCsvDownload.status, 200); assert.equal((manyCsvDownload.value.match(/qa-bulk-/g) || []).length, 505);
 
-  const lead = await request("/api/inquiry", "POST", {
+  const inquiry = {
     name: "QA Visitor", company: "QA Co", email: `qa-${randomUUID()}@example.com`, country: "China", product: "Other",
     message: "Please send detailed product information.", locale: "en", consent: "yes", sourcePage: "/en/contact", website: "",
-  }, false);
+  };
+  const [lead, retry] = await Promise.all([
+    request("/api/inquiry", "POST", inquiry, false), request("/api/inquiry", "POST", inquiry, false),
+  ]);
   assert.equal(lead.status, 201, JSON.stringify(lead.value));
+  assert.equal(retry.status, 201, JSON.stringify(retry.value));
+  assert.equal(retry.value.id, lead.value.id);
+  assert.equal(Number(retry.value.duplicate) + Number(lead.value.duplicate), 1);
+  const different = await request("/api/inquiry", "POST", { ...inquiry, message: "Please send different product specifications." }, false);
+  assert.equal(different.status, 201);
+  assert.notEqual(different.value.id, lead.value.id);
+  const invalidOrigin = await fetch(`${base}/api/inquiry`, { method: "POST", headers: { Origin: "null" } });
+  assert.equal(invalidOrigin.status, 403);
   const customStatus = await request("/api/admin/lead_statuses", "POST", { id: "follow-up", name_zh: "待二次跟进", sort_order: 15 });
   assert.equal(customStatus.status, 201, JSON.stringify(customStatus.value));
   assert.equal((await request(`/api/admin/leads/${lead.value.id}`, "PATCH", { status_id: "follow-up" })).status, 200);
@@ -158,6 +214,14 @@ try {
   const coverage = await request("/api/admin/sync/refresh");
   assert.equal(coverage.status, 200);
   assert.ok(coverage.value.progress.some((item) => item.source === "ga4" && item.coveredThrough === "2026-10-13"));
+  assert.equal((await request("/api/admin/sync/refresh", "POST", {})).status, 200);
+  const jobs = await request("/api/admin/sync/jobs");
+  assert.ok(jobs.value.items.some((item) => item.source_id === "ga4" && item.status === "failed" && item.attempt === 2));
+  const report = await request("/api/admin/sync/health", "POST", {});
+  assert.equal(report.status, 200);
+  assert.ok(report.value.report.checks.some((item) => item.id === "public" && item.state === "ok"), JSON.stringify(report.value.report));
+  assert.equal((await request("/api/admin/sync/google")).status, 200);
+  assert.equal((await request("/api/admin/sync/google", "POST", {})).status, 503);
   assert.equal((await request("/api/admin/leads/export")).status, 200);
   const queuedExport = await request("/api/admin/export/jobs", "POST", { module: "leads", q: "QA" });
   assert.equal(queuedExport.status, 202, JSON.stringify(queuedExport.value));
@@ -169,11 +233,33 @@ try {
   assert.equal((await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: "1234567" })).status, 400);
   const readonly = await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: randomBytes(6).toString("base64url") });
   assert.equal(readonly.status, 201, JSON.stringify(readonly.value));
+  const salesPassword = randomBytes(8).toString("base64url");
+  const sales = await request("/api/admin/users", "POST", { username: "qa-sales", email: "qa-sales@example.com", display_name: "QA Sales", role_id: "sales", temporary_password: salesPassword });
+  assert.equal(sales.status, 201);
+  const settings = await request("/api/admin/settings");
+  assert.equal((await request("/api/admin/settings", "PUT", { key: "seo", value: { ...settings.value.settings.seo, indexingEnabled: false } })).status, 200);
+  assert.match((await request("/en", "GET", undefined, false)).value, /name="robots" content="noindex, nofollow"/);
+  assert.doesNotMatch((await request("/robots.txt", "GET", undefined, false)).value, /Sitemap:/);
+  assert.doesNotMatch((await request("/sitemap.xml", "GET", undefined, false)).value, /<loc>/);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-sales", password: salesPassword }, false)).status, 200);
+  const nextSalesPassword = randomBytes(8).toString("base64url");
+  assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: salesPassword, newPassword: nextSalesPassword })).status, 200);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-sales", password: nextSalesPassword }, false)).status, 200);
+  assert.equal((await request("/api/admin/sync/refresh")).status, 403);
+  assert.equal((await request("/api/admin/sync/refresh", "POST", {})).status, 403);
+  assert.equal((await request("/api/admin/sync/health", "POST", {})).status, 403);
   assert.equal((await request("/api/admin/auth/logout", "POST", {})).status, 200);
   assert.equal((await request("/api/admin/products")).status, 401);
   console.log("Admin API end-to-end flow passed: auth, RBAC, category, media, product relations, translations, import queue, versions, news, lead, analytics, sync, export, logout");
+} catch (error) {
+  console.error(logs);
+  throw error;
 } finally {
   server.kill("SIGINT");
   await new Promise((resolve) => { if (server.exitCode !== null) resolve(); else server.once("exit", resolve); });
-  await rm(data, { recursive: true, force: true });
+  const [directory, scratch] = await Promise.all([realpath(data), realpath(join(root, ".data"))]);
+  if (!directory.startsWith(scratch + sep) || !/^admin-e2e-[a-f0-9-]+$/i.test(directory.slice(scratch.length + 1))) {
+    throw new Error("Test data directory escaped its sandbox");
+  }
+  await rm(directory, { recursive: true, force: true });
 }

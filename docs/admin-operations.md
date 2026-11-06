@@ -17,7 +17,9 @@ Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm
 3. Add `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `CRON_SECRET`, `IP_HASH_SALT`, `ANALYTICS_HASH_SALT`, GA4 service account variables, Resend variables, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_INDEXABLE`, and the GA4 measurement ID from `.env.example`. `GOOGLE_SERVICE_ACCOUNT_JSON` and Blob/Resend secrets must be Production-only and never use the `NEXT_PUBLIC_` prefix. S3 variables are an alternative for Docker or other hosts.
 4. Verify the Resend sending domain and `info@maigebio.com` recipient. Give the service account viewer access to GA4 property `558913614`. Search Console requires separate site permission and API enablement; its source should be enabled only while those remain valid.
 5. Verify `/api/health`, admin login, media upload, published content API, enquiry persistence/email, tracking consent, sitemap and rollback on Production. A Preview environment needs its own database branch and media store; it must never use Production credentials.
-6. `vercel.json` schedules `/api/cron` daily at 02:00 UTC for maintenance, `/api/cron/data-sync` daily at 01:00 UTC to check for a 72-hour GA4/Search Console gap, and `/api/cron/google-sitemap` every Monday at 01:00 UTC (09:00 Asia/Shanghai) on Vercel Production. Opening the backend immediately catches up missing reporting days in small batches; the daily check is a fallback. The platform sends `Authorization: Bearer <CRON_SECRET>`. Verify successful jobs on `/admin/sync`. Sitemap submission needs Search Console write scope and property access. A Docker worker is provided for routine self-hosted jobs.
+6. `vercel.json` schedules maintenance and site health at 02:00 UTC daily, external reporting at 01:00 UTC daily, and the Google sitemap submission on Mondays at 09:00 Asia/Shanghai. Authorized sync operators can catch up reporting days on admin entry. The daily cron also picks up failed sitemap submissions that are due for retry.
+7. In `/admin/sync`, use **读取 Google 报告** to check the latest submission, the last Google download and the five inspected URLs before submitting again. An accepted submission records the Search Console API acknowledgement. Use the processing status and each URL's inspection result to check what Google did afterward.
+8. Verify the production property, reporting coverage and mail delivery history with an authorized session. For a staged release, verify the exact commit and the existing domain assignment before promotion. Keep the previous working deployment available for rollback.
 
 ## Backup and recovery
 
@@ -28,9 +30,11 @@ Run `ADMIN_USERNAME=admin ADMIN_EMAIL=... ADMIN_NAME=... ADMIN_PASSWORD=... pnpm
 
 ## Operations checks
 
-- `pnpm typecheck`, `pnpm test`, `pnpm test:admin`, `pnpm build`, `pnpm audit --audit-level moderate` are release gates.
+- Release gates include `pnpm typecheck`, `pnpm test`, `pnpm test:admin`, `pnpm build` and `pnpm audit --prod`. The admin tests use an isolated database and exercise concurrent inquiry retries, permissions, upload validation, translated URLs and sitemap rules.
 - `/admin/sync` shows source enablement, last success/error, future run time and job history. GA4, Search Console and Resend failures are recorded without deleting leads or existing report data.
 - `/admin/analytics` separates consented events from actual submitted enquiries. Address tracking appears only after a verified HTTPS map URL is configured in Settings.
+- After consent, GA4 receives `web_vital_lcp`, `web_vital_inp` and `web_vital_cls` events for the landing path. LCP and INP values use milliseconds. Divide CLS values by 1,000. Use sufficient samples per device and region before comparing percentiles.
+- **站点巡检** in `/admin/sync` shows checks for public routes, reporting, Google sitemap processing, mail and the queue. Failed checks appear in the panel and log `MAIGE site health alert` with the affected check names. Mail acceptance and delivery are separate. Read-back of delivery requires a Resend credential with access to the sent record.
 - Backend date displays and new tracking day buckets use the timezone in Settings. Historical day buckets are not rewritten after a timezone change; select the intended timezone before collecting production traffic.
 - Export jobs store CSV chunks in PostgreSQL so worker restarts do not lose a large download. Daily retention cleanup removes completed export jobs and their chunks after 30 days; lead export downloads are audited.
 - Retention cleanup uses the settings for analytics events, login attempts and audit logs. It does not automatically delete customer enquiries. Handle an authorised privacy request through a reviewed export/delete procedure for the specific lead.

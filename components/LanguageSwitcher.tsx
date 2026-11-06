@@ -9,10 +9,27 @@ const labels: Record<Locale, string> = { en: "English", ar: "العربية", ru
 export default function LanguageSwitcher({ locale }: { locale: Locale }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [destinations, setDestinations] = useState<Partial<Record<Locale, string>>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const optionsId = useId();
   const suffix = pathname.replace(/^\/(en|ar|ru|es)(?=\/|$)/, "") || "";
+
+  function toggle() {
+    if (!open) {
+      const base = document.querySelector<HTMLElement>("main [data-content-base]")?.dataset.contentBase || suffix;
+      const paths: Partial<Record<Locale, string>> = {};
+      for (const item of locales) {
+        const alternate = document.querySelector<HTMLLinkElement>(`link[rel="alternate"][hreflang="${item}"]`);
+        const url = alternate ? new URL(alternate.href, location.origin) : null;
+        paths[item] = url?.origin === location.origin && (url.pathname === `/${item}` || url.pathname.startsWith(`/${item}/`))
+          ? url.pathname
+          : `/${item}${base}`;
+      }
+      setDestinations(paths);
+    }
+    setOpen(!open);
+  }
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -34,9 +51,9 @@ export default function LanguageSwitcher({ locale }: { locale: Locale }) {
 
   return (
     <div className="language-switcher" ref={containerRef}>
-      <button type="button" ref={buttonRef} aria-label="Select language" aria-expanded={open} aria-controls={optionsId} onClick={() => setOpen(!open)}><span aria-hidden="true">◎</span> {labels[locale]} <span className="chevron" aria-hidden="true">⌄</span></button>
+      <button type="button" ref={buttonRef} aria-label="Select language" aria-expanded={open} aria-controls={optionsId} onClick={toggle}><span aria-hidden="true">◎</span> {labels[locale]} <span className="chevron" aria-hidden="true">⌄</span></button>
       {open && <div className="language-options" id={optionsId}>
-        {locales.map((item) => <a key={item} href={`/${item}${suffix}`} hrefLang={item} lang={item} aria-current={item === locale ? "page" : undefined}>{labels[item]}</a>)}
+        {locales.map((item) => <a key={item} href={destinations[item] || `/${item}${suffix}`} hrefLang={item} lang={item} aria-current={item === locale ? "page" : undefined}>{labels[item]}</a>)}
       </div>}
     </div>
   );

@@ -1,10 +1,11 @@
 import "server-only";
+import { cache } from "react";
 import { connection } from "next/server";
 import { query } from "@/lib/db";
 import { whatsappUrl } from "@/lib/site";
 
 export type ContactSettings = { addressLabel: string; addressUrl: string; whatsappLabel: string; whatsappUrl: string };
-export async function getContactSettings(): Promise<ContactSettings> {
+export const getContactSettings = cache(async (): Promise<ContactSettings> => {
   await connection();
   try {
     const rows = await query<{ value: Partial<ContactSettings> }>("SELECT value FROM system_settings WHERE key='tracking'");
@@ -14,4 +15,4 @@ export async function getContactSettings(): Promise<ContactSettings> {
       whatsappLabel: value.whatsappLabel || "WhatsApp", whatsappUrl: value.whatsappUrl?.startsWith("https://wa.me/") ? value.whatsappUrl : whatsappUrl,
     };
   } catch { return { addressLabel: "", addressUrl: "", whatsappLabel: "WhatsApp", whatsappUrl }; }
-}
+});

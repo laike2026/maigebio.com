@@ -5,8 +5,10 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { interiorCopy } from "@/lib/interior-copy";
 import { href, isLocale } from "@/lib/site";
 import { applyContentSeo, pageMetadata } from "@/lib/seo";
+import { publishedIndex, publishedPaths } from "@/lib/content-index";
 import { publishedArticle, publishedArticleRelations, redirectTarget } from "@/lib/public-content";
 import { art, InteriorHero, SupportCTA } from "@/components/interiors/Interior";
+import StructuredData, { absoluteSiteUrl } from "@/components/StructuredData";
 export async function generateMetadata({
   params,
 }: {
@@ -16,12 +18,15 @@ export async function generateMetadata({
   if (!isLocale(locale)) return {};
   const item = await publishedArticle(locale, slug);
   if (!item) return {};
+  if (item.slug !== slug) permanentRedirect(href(locale, `/blog/${item.slug}`));
+  const [entry] = await publishedIndex("blog", item.id);
   return applyContentSeo(
-    pageMetadata(
+    await pageMetadata(
       locale,
       String(item.seo?.title || item.title),
       String(item.seo?.description || item.excerpt),
-      `/blog/${slug}`,
+      `/blog/${item.slug}`,
+      { paths: entry ? publishedPaths("blog", entry) : {}, index: item.content_locale === locale },
     ),
     item.seo || {},
   );
@@ -40,6 +45,9 @@ export default async function Article({
     if (target) permanentRedirect(target);
     notFound();
   }
+  if (item.slug !== slug) permanentRedirect(href(locale, `/blog/${item.slug}`));
+  const articlePath = `/blog/${item.slug}`;
+  const canonical = absoluteSiteUrl(href(locale, articlePath));
   const relations = await publishedArticleRelations(item.id);
   const headings: { id: string; text: string }[] = [];
   const html = item.body_html.replace(
@@ -57,12 +65,27 @@ export default async function Article({
     },
   );
   return (
-    <div className="mi-page">
+    <div className="mi-page" data-content-base={`/blog/${item.base_slug}`}>
+      <StructuredData data={{
+        "@type": "Article",
+        "@id": `${canonical}#article`,
+        headline: item.title,
+        description: item.excerpt,
+        mainEntityOfPage: canonical,
+        inLanguage: item.content_locale,
+        datePublished: item.published_at ? new Date(item.published_at).toISOString() : undefined,
+        dateModified: locale === "en" ? new Date(item.updated_at).toISOString() : undefined,
+        image: item.image_url ? absoluteSiteUrl(item.image_url) : undefined,
+        author: item.author ? { "@type": "Person", name: item.author } : undefined,
+        publisher: { "@type": "Organization", name: "MAIGE Bioscience", "@id": absoluteSiteUrl("/#organization") },
+      }} />
       <InteriorHero
         locale={locale}
         title={item.title}
         intro={item.excerpt}
         image={null}
+        currentPath={articlePath}
+        contentLanguage={item.content_locale}
         crumbs={[{ label: c.blogTitle, path: "/blog" }, { label: item.title }]}
       />
       <div className="container mi-content">
@@ -86,7 +109,7 @@ export default async function Article({
             ))}
             <Link href={href(locale, "/blog")}>{c.blogTitle}</Link>
           </aside>
-          <article className="mi-richtext" dangerouslySetInnerHTML={{ __html: html }} />
+          <article className="mi-richtext" lang={item.content_locale} dangerouslySetInnerHTML={{ __html: html }} />
           <aside className="mi-article-related">
             <h2>{c.relatedProducts}</h2>
             {relations.products.length ? (

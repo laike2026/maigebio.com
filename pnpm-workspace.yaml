@@ -2,3 +2,5 @@ allowBuilds:
   esbuild: true
 overrides:
   uuid: ^11.1.1
+  "@vercel/blob>undici": "^6.29.1"
+  "@vercel/cli-config>zod": "^4.6.6"

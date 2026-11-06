@@ -20,7 +20,7 @@ const labels: Record<string, string> = {
 const tableColumns: Record<string, string[]> = {
   products: ["name_en", "sku", "status", "updated_at"], categories: ["name_en", "enabled", "sort_order", "updated_at"],
   news: ["title_en", "status", "author", "updated_at"], news_categories: ["name_en", "enabled", "sort_order", "updated_at"],
-  leads: ["name", "company", "status_id", "submitted_at"], lead_statuses: ["name_zh", "sort_order"],
+  leads: ["name", "company", "product_interest", "status_id", "submitted_at"], lead_statuses: ["name_zh", "sort_order"],
   media: ["original_name", "mime_type", "size_bytes", "created_at"], roles: ["name_zh", "system_role", "updated_at"],
   users: ["display_name", "email", "role_id", "active", "last_login_at"], audit: ["action", "module", "success", "created_at"],
   sync: ["name_zh", "enabled", "last_success_at", "next_run_at"],
@@ -125,8 +125,23 @@ export default function AdminList({ module, canCreate, canUpdate, canDelete, can
       {selected.length > 0 && <><span>已选 {selected.length} 条</span>{trash ? canUpdate && <button className="admin-secondary" onClick={() => bulk("restore")}>批量恢复</button> : <>{["products", "news"].includes(module.key) && <>{canPublish && module.key === "products" && <button className="admin-secondary" onClick={() => bulk("publish")}>批量发布</button>}{canUpdate && <button className="admin-secondary" onClick={() => bulk("unlist")}>批量下架</button>}</>}{canUpdate && ["categories", "news_categories"].includes(module.key) && <><button className="admin-secondary" onClick={() => bulk("enable")}>批量启用</button><button className="admin-secondary" onClick={() => bulk("disable")}>批量停用</button></>}{canUpdate && module.key === "leads" && <><LeadStatusSelect value={bulkStatus} onChange={setBulkStatus} disabled={busy} /><button className="admin-secondary" onClick={() => bulk("lead_status")}>批量分类</button><ReferencePicker kind="users" value={bulkOwner} onChange={setBulkOwner} disabled={busy} label="负责人" /><button className="admin-danger" onClick={() => bulk("spam")}>标记垃圾</button></>}{canDelete && <button className="admin-danger" onClick={() => bulk("delete")}>批量删除</button>}</>}</>}
     </div>
     {error && <p className="admin-error" role="alert">{error}</p>}
-    <div className="admin-list-workspace"><div className="admin-list-primary"><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th><input type="checkbox" aria-label="选择本页全部" checked={allSelected} onChange={(event) => setSelected(event.target.checked ? (data?.items.map((row) => row.id) || []) : [])} /></th>{visibleColumns.map((column) => <th key={column}>{labels[column] || column}</th>)}<th>操作</th></tr></thead><tbody>
-      {data?.items.map((row) => <tr key={row.id} className={previewId === row.id ? "is-previewed" : ""}><td><input type="checkbox" aria-label={`选择 ${row.id}`} checked={selected.includes(row.id)} onChange={(event) => setSelected((previous) => event.target.checked ? [...previous, row.id] : previous.filter((id) => id !== row.id))} /></td>{visibleColumns.map((column) => <td key={column} title={String(row[column] ?? "")}>{display(row[column], formatDate)}</td>)}<td>{trash ? canUpdate ? <button className="admin-secondary" onClick={() => { void (async () => { const response = await fetch(`/api/admin/${module.key}/${row.id}`, { method: "POST" }); if (response.ok) await load(); else setError("恢复失败"); })(); }}>恢复</button> : "—" : <button className="admin-row-preview" type="button" onClick={() => setPreviewId(row.id)} aria-label={`预览${module.singular}`}><IconEye size={17} stroke={1.8} aria-hidden="true" />速览</button>}</td></tr>)}
+    <div className="admin-list-workspace"><div className="admin-list-primary"><div className="admin-table-wrap"><table className={`admin-table${module.key === "leads" ? " admin-mobile-leads" : ""}`}>
+      <thead><tr><th data-field="select"><input type="checkbox" aria-label="选择本页全部" checked={allSelected} onChange={(event) => setSelected(event.target.checked ? (data?.items.map((row) => row.id) || []) : [])} /></th>
+        {visibleColumns.map((column) => <th key={column} data-field={column} scope="col">{column === "company" && module.key === "leads" ? <>
+          <span className="admin-desktop-company">公司</span><span className="admin-mobile-company">公司与产品</span>
+        </> : labels[column] || column}</th>)}<th data-field="action" scope="col">操作</th>
+      </tr></thead><tbody>
+      {data?.items.map((row) => <tr key={row.id} className={previewId === row.id ? "is-previewed" : ""}>
+        <td data-field="select"><input type="checkbox" aria-label={`选择 ${row.company || row.id}`} checked={selected.includes(row.id)} onChange={(event) => setSelected((previous) => event.target.checked ? [...previous, row.id] : previous.filter((id) => id !== row.id))} /></td>
+        {visibleColumns.map((column) => <td key={column} data-field={column} title={String(row[column] ?? "")}>
+          {column === "status_id" ? leadStatuses.find((status) => status.id === row[column])?.name_zh || display(row[column], formatDate) : display(row[column], formatDate)}
+          {column === "company" && module.key === "leads" && <small className="admin-mobile-company">{display(row.product_interest, formatDate)}</small>}
+        </td>)}
+        <td data-field="action">{trash ? canUpdate ? <button className="admin-secondary" onClick={() => { void (async () => { const response = await fetch(`/api/admin/${module.key}/${row.id}`, { method: "POST" }); if (response.ok) await load(); else setError("恢复失败"); })(); }}>恢复</button> : "—" : <>
+          <button className="admin-row-preview" type="button" onClick={() => setPreviewId(row.id)} aria-label={`预览${module.singular}`}><IconEye size={17} stroke={1.8} aria-hidden="true" />速览</button>
+          {module.key === "leads" && <Link className="admin-mobile-lead-action" href={`/admin/leads/${row.id}`}>{canUpdate ? "跟进" : "查看"}</Link>}
+        </>}</td>
+      </tr>)}
       {!busy && data?.items.length === 0 && <tr><td colSpan={visibleColumns.length + 2}><div className="admin-empty">暂无记录</div></td></tr>}
       {busy && !data && <tr><td colSpan={visibleColumns.length + 2}><div className="admin-empty">正在加载…</div></td></tr>}
     </tbody></table></div></div><AdminRecordPreview module={module} id={previewId} canUpdate={canUpdate} /></div>

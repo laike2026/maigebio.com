@@ -6,6 +6,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import InquiryForm from "@/components/InquiryForm";
 import ProductGallery from "@/components/interiors/ProductGallery";
 import ProductSpecPicker from "@/components/interiors/ProductSpecPicker";
+import StructuredData, { absoluteSiteUrl } from "@/components/StructuredData";
 import {
   art,
   InteriorHero,
@@ -19,6 +20,8 @@ import {
 import { interiorCopy } from "@/lib/interior-copy";
 import { categories, href, isLocale } from "@/lib/site";
 import { applyContentSeo, pageMetadata } from "@/lib/seo";
+import { categoryPaths, publishedIndex, publishedPaths } from "@/lib/content-index";
+import { procurementLabel, selectionGuide } from "@/lib/procurement";
 import {
   publishedCategory,
   publishedProduct,
@@ -38,18 +41,21 @@ export async function generateMetadata({
   if (!isLocale(locale)) return {};
   const c = interiorCopy(locale);
   const fixed = categories.find((x) => x.slug === slug);
-  const item = (await publishedProduct(locale, slug)) || (await publishedCategory(slug));
-  if (!item)
-    return fixed ? pageMetadata(locale, c[fixed.key], c[fixed.key + "Text"], `/products/${slug}`) : {};
-  return applyContentSeo(
-    pageMetadata(
-      locale,
-      String(item.seo?.title || item.name),
-      String(item.seo?.description || item.summary),
-      `/products/${slug}`,
-    ),
-    item.seo || {},
-  );
+  const [item, category] = await Promise.all([publishedProduct(locale, slug), publishedCategory(slug)]);
+  if (item) {
+    if (item.slug !== slug) permanentRedirect(href(locale, `/products/${item.slug}`));
+    const [entry] = await publishedIndex("products", item.id);
+    return applyContentSeo(await pageMetadata(
+      locale, String(item.seo?.title || item.name), String(item.seo?.description || item.summary),
+      `/products/${item.slug}`, { paths: entry ? publishedPaths("products", entry) : {}, index: item.content_locale === locale },
+    ), item.seo || {});
+  }
+  const path = `/products/${slug}`;
+  const paths = categoryPaths(slug, category?.seo);
+  if (fixed && (!category || locale !== "en")) return pageMetadata(locale, c[fixed.key], c[fixed.key + "Text"], path, { paths });
+  if (!category) return {};
+  return applyContentSeo(await pageMetadata(locale, String(category.seo?.title || category.name),
+    String(category.seo?.description || category.summary), path, { paths, index: locale === "en" }), category.seo || {});
 }
 export default async function ProductPage({
   params,
@@ -61,7 +67,8 @@ export default async function ProductPage({
   const c = interiorCopy(locale);
   const [item, category] = await Promise.all([publishedProduct(locale, slug), publishedCategory(slug)]);
   const fixed = categories.find((x) => x.slug === slug);
-  if (category && !item) {
+  if (item && item.slug !== slug) permanentRedirect(href(locale, `/products/${item.slug}`));
+  if (category && !item && (!fixed || locale === "en")) {
     const products = await publishedProducts(locale, { category: slug, size: 100 });
     return (
       <div className="mi-page">
@@ -138,6 +145,7 @@ export default async function ProductPage({
   const family = item?.category_slug || slug;
   const title = item?.name || c[fixed!.key];
   const summary = item?.summary || c[fixed!.key + "Text"];
+  const guide = selectionGuide(locale, family);
   const relations = item ? await publishedProductRelations(item.id) : { media: [], related: [] };
   const image = item?.image_url || art(productArt[family] || "lab-hero");
   const fields =
@@ -153,11 +161,11 @@ export default async function ProductPage({
         typeof s === "object" && s
           ? [
               String((s as Record<string, unknown>).name || index + 1),
-              String((s as Record<string, unknown>).value || ""),
+              String((s as Record<string, unknown>).value ?? ""),
             ]
           : [String(s), ""],
       )
-    : fields.map((f) => [f, c.confirmSpec]);
+    : fields.map((field, index) => [field, guide?.criteria[index] || c.confirmSpec]);
   const initialProduct =
     family === "dialysis-tubing"
       ? "Dialysis Tubing"
@@ -200,15 +208,37 @@ export default async function ProductPage({
     art(detailArt),
     ...relations.media.filter((x) => x.kind === "image").map((x) => x.url),
   ];
+  const documents = relations.media.filter((media) => media.kind !== "image");
+  const productPath = `/products/${slug}`;
+  const productUrl = absoluteSiteUrl(href(locale, productPath));
+  const productName = item?.sku ? `${title} (${item.sku})` : title;
   return (
-    <div className="mi-page">
+    <div className="mi-page" data-content-base={item ? `/products/${item.base_slug}` : undefined}>
+      {item ? (
+        <StructuredData data={{
+          "@type": "Product", "@id": `${productUrl}#product`, name: title, description: summary, sku: item.sku || undefined,
+          url: productUrl, image: item.image_url ? absoluteSiteUrl(item.image_url) : undefined,
+          brand: { "@type": "Brand", name: "MAIGE Bioscience" },
+          additionalProperty: item.specifications?.length ? rows.filter(([, value]) => value).map(([name, value]) => ({ "@type": "PropertyValue", name, value })) : undefined,
+        }} />
+      ) : (
+        <StructuredData data={{ "@type": "CollectionPage", name: title, description: summary, url: productUrl, inLanguage: locale }} />
+      )}
       <div className="container mi-breadcrumb">
         <Breadcrumb
           locale={locale}
+          currentPath={productPath}
           items={[{ label: c.productCenter, path: "/products" }, { label: title }]}
         />
       </div>
       <div className="container mi-product-top">
+        <div className="mi-product-intro">
+          {item?.sku && <p className="mi-kicker">{item.sku}</p>}
+          <h1 lang={item?.content_locale}>{title}</h1>
+          <p lang={item?.content_locale}>{summary}</p>
+          {item && item.content_locale !== locale && <p className="mi-image-note">{procurementLabel(locale, "fallback")}</p>}
+          <a className="mi-text-link" href="#specifications">{procurementLabel(locale, "compare")}</a>
+        </div>
         <ProductGallery
           key={slug}
           images={gallery}
@@ -218,23 +248,20 @@ export default async function ProductPage({
           note={!item?.image_url ? c.imageNote : undefined}
         />
         <div className="mi-product-info">
-          {item?.sku && <p className="mi-kicker">{item.sku}</p>}
-          <h1>{title}</h1>
-          <p>{summary}</p>
           <ProductSpecPicker
             title={title}
             fields={fields}
-            heading={c.chooseSpecs}
+            heading={procurementLabel(locale, "choose")}
             placeholder={c.requirements}
             quote={c.quote}
             information={c.requestInformation}
-            resourceUrl={href(locale, "/resources")}
+            resourceUrl="#documents"
           />
         </div>
       </div>
       <nav className="mi-anchor-nav" aria-label={c.reading}>
         <div className="container">
-          {["overview", "specifications", "workflow", "documents"].map((key) => (
+          {["specifications", "overview", "workflow", "documents"].map((key) => (
             <a href={"#" + key} key={key}>
               {c[key]}
             </a>
@@ -243,10 +270,17 @@ export default async function ProductPage({
         </div>
       </nav>
       <div className="container">
+        <section className="mi-section mi-split mi-split-top" id="specifications">
+          <SpecTable locale={locale} rows={rows} caption={!item?.specifications?.length && guide ? procurementLabel(locale, "guide") : undefined} />
+          <div className="mi-illustration-panel">
+            <Image src={art(detailArt)} alt={c.workflow} width={700} height={467} />
+            <p>{procurementLabel(locale, "forResearch")}</p>
+          </div>
+        </section>
         <section className="mi-section mi-overview" id="overview">
           <h2>{c.overview}</h2>
           {item?.description_html ? (
-            <div className="mi-richtext" dangerouslySetInnerHTML={{ __html: item.description_html }} />
+            <div className="mi-richtext" lang={item.content_locale} dangerouslySetInnerHTML={{ __html: item.description_html }} />
           ) : (
             <>
               <p>{summary}</p>
@@ -263,39 +297,45 @@ export default async function ProductPage({
             </ul>
           ) : null}
         </section>
-        <section className="mi-section mi-split mi-split-top" id="specifications">
-          <SpecTable locale={locale} rows={rows} />
-          <div className="mi-illustration-panel">
-            <Image src={art(detailArt)} alt={c.workflow} width={700} height={467} />
-            <p>{c.specHelp}</p>
-          </div>
-        </section>
         <section className="mi-section" id="workflow">
           <Workflow title={c.workflow} items={steps} />
           <p>{c.specHelp}</p>
         </section>
         <section className="mi-section" id="documents">
           <h2>{c.documents}</h2>
-          {relations.media.some((x) => x.kind !== "image") ? (
-            <div className="mi-resource-list">
-              {relations.media
-                .filter((x) => x.kind !== "image")
-                .map((x) => (
+          {documents.length > 0 && (
+            <div className="mi-downloads">
+              <h3>{procurementLabel(locale, "download")}</h3>
+              <ul>
+              {documents.map((x) => (
+                <li key={x.id}>
                   <a
                     className="mi-text-link"
-                    key={x.id}
                     href={x.url}
+                    download={x.name}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     {x.name}
                   </a>
+                </li>
                 ))}
+              </ul>
             </div>
-          ) : (
-            <ResourceRows locale={locale} small />
           )}
+          <h3 className="mi-request-heading">{procurementLabel(locale, "request")}</h3>
+          <ResourceRows locale={locale} small product={productName} family={family} />
         </section>
+        {guide && (
+          <section className="mi-section mi-selection-questions">
+            <h2>{procurementLabel(locale, "faq")}</h2>
+            <h3>{guide.question}</h3>
+            <p>{guide.answer}</p>
+            <a className="mi-text-link" href={guide.source.href} target="_blank" rel="noopener noreferrer">
+              {procurementLabel(locale, "notes")} · {guide.source.label}
+            </a>
+          </section>
+        )}
         <section className="mi-section">
           <h2>{c.relatedProducts}</h2>
           <div className="mi-product-grid mi-related-grid">
@@ -324,7 +364,7 @@ export default async function ProductPage({
                   ))}
           </div>
         </section>
-        <section id="product-inquiry" className="mi-detail-form">
+        <section id="product-inquiry" className="mi-detail-form" tabIndex={-1}>
           <div>
             <h2>{c.productEnquiry}</h2>
             <p>{c.supportText}</p>
@@ -337,7 +377,7 @@ export default async function ProductPage({
           <InquiryForm
             locale={locale}
             initialProduct={initialProduct}
-            productName={item ? `${title} (${item.sku})` : title}
+            productName={productName}
           />
         </section>
       </div>

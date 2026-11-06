@@ -1,13 +1,12 @@
-import { timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
 import { runDueJobs } from "@/lib/admin/sync-engine";
+import { cronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer /, "") || "";
-  if (!secret || secret.length < 24 || supplied.length !== secret.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret))) return Response.json({ code: "FORBIDDEN" }, { status: 403 });
+  if (!cronAuthorized(request)) return Response.json({ code: "FORBIDDEN" }, { status: 403 });
 
   const now = new Date();
   const shanghai = new Date(now.getTime() + 8 * 60 * 60 * 1000);
@@ -20,6 +19,6 @@ export async function GET(request: Request) {
     [`google_sitemap:${monday}`],
   );
   await query("UPDATE sync_sources SET next_run_at=$1,updated_at=now() WHERE id='google_sitemap'", [new Date(Date.parse(`${monday}T01:00:00Z`) + 7 * 24 * 60 * 60 * 1000).toISOString()]);
-  const results = await runDueJobs(1, "google_sitemap");
+  const results = await runDueJobs(1, "google_sitemap", true);
   return Response.json({ queued: Boolean(queued.rowCount), results });
 }

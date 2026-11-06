@@ -69,6 +69,8 @@ export function InteriorHero({
   intro,
   image = "lab-hero",
   crumbs,
+  currentPath,
+  contentLanguage,
   compact = false,
   children,
 }: {
@@ -77,13 +79,15 @@ export function InteriorHero({
   intro?: string;
   image?: string | null;
   crumbs?: { label: string; path?: string }[];
+  currentPath?: string;
+  contentLanguage?: Locale;
   compact?: boolean;
   children?: ReactNode;
 }) {
   return (
     <>
       <div className="container mi-breadcrumb">
-        <Breadcrumb locale={locale} items={crumbs || [{ label: title }]} />
+        <Breadcrumb locale={locale} items={crumbs || [{ label: title }]} currentPath={currentPath} />
       </div>
       <header className={`mi-hero${compact ? " mi-hero-compact" : ""}${!image ? " mi-hero-text" : ""}`}>
         {image && (
@@ -91,8 +95,8 @@ export function InteriorHero({
         )}
         <div className="container">
           <div className="mi-hero-copy">
-            <h1>{title}</h1>
-            {intro && <p>{intro}</p>}
+            <h1 lang={contentLanguage}>{title}</h1>
+            {intro && <p lang={contentLanguage}>{intro}</p>}
             {children}
           </div>
         </div>
@@ -165,6 +169,7 @@ export function ProductCard({
   path,
   sku,
   row = false,
+  heading: Heading = "h2",
 }: {
   locale: Locale;
   title: string;
@@ -173,6 +178,7 @@ export function ProductCard({
   path: string;
   sku?: string;
   row?: boolean;
+  heading?: "h2" | "h3" | "h4";
 }) {
   const c = interiorCopy(locale);
   return (
@@ -189,7 +195,7 @@ export function ProductCard({
         </div>
         <div className="mi-product-card-copy">
           {sku && <p className="mi-kicker">{sku}</p>}
-          <h2>{title}</h2>
+          <Heading>{title}</Heading>
           <p>{summary}</p>
           <span className="mi-text-link">
             {c.viewDetails}
@@ -204,10 +210,14 @@ export function ResourceRows({
   locale,
   small = false,
   query = "",
+  product,
+  family,
 }: {
   locale: Locale;
   small?: boolean;
   query?: string;
+  product?: string;
+  family?: string;
 }) {
   const c = interiorCopy(locale);
   const rows: { key: string; icon: IconName }[] = [
@@ -220,6 +230,7 @@ export function ResourceRows({
     (item) =>
       !query || (c[item.key] + " " + c[item.key + "Text"]).toLowerCase().includes(query.toLowerCase()),
   );
+  const RowHeading = small ? "h4" : "h2";
   return (
     <div className={`mi-resource-list${small ? " mi-resource-small" : ""}`}>
       {visible.map((item) => (
@@ -229,12 +240,14 @@ export function ResourceRows({
           </span>
           {!small && <Image src={art("documents")} alt="" width={150} height={160} sizes="120px" />}
           <div>
-            <h2>{c[item.key]}</h2>
+            <RowHeading>{c[item.key]}</RowHeading>
             <p>{c[item.key + "Text"]}</p>
           </div>
           <Link
             className="button button-outline"
-            href={href(locale, "/contact") + `?document=${item.key}`}
+            href={href(locale, "/contact") + "?" + new URLSearchParams({
+              document: item.key, ...(product ? { product } : {}), ...(family ? { family } : {}),
+            })}
           >
             {c.requestFile}
             <ScienceIcon name="arrow" size={18} />
@@ -252,15 +265,15 @@ export function ResourceRows({
     </div>
   );
 }
-export function SpecTable({ rows, locale }: { rows: [string, string][]; locale: Locale }) {
+export function SpecTable({ rows, locale, caption }: { rows: [string, string][]; locale: Locale; caption?: string }) {
   const c = interiorCopy(locale);
   return (
     <div className="mi-table-scroll">
       <table className="mi-spec-table">
-        <caption>{c.specifications}</caption>
+        <caption>{caption || c.specifications}</caption>
         <tbody>
-          {rows.map(([name, value]) => (
-            <tr key={name}>
+          {rows.map(([name, value], index) => (
+            <tr key={`${name}-${index}`}>
               <th scope="row">{name}</th>
               <td>{value}</td>
             </tr>

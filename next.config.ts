@@ -22,7 +22,10 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       ],
-    }];
+    }, ...["full", "small"].map((size) => ({
+      source: `/images/reference/home-atlas-v1-${size}.webp`,
+      headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+    }))];
   },
 };
 

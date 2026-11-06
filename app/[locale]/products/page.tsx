@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { categories, href, isLocale } from "@/lib/site";
+import { applications, categories, href, isLocale } from "@/lib/site";
 import { interiorCopy } from "@/lib/interior-copy";
+import { matchesSearch, searchValue, type SearchParams } from "@/lib/search";
+import { applicationSummary } from "@/lib/procurement";
 import { pageMetadata } from "@/lib/seo";
 import { publishedCategories, publishedProducts } from "@/lib/public-content";
 import {
@@ -15,26 +17,32 @@ import {
 } from "@/components/interiors/Interior";
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParams>;
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const c = interiorCopy(locale);
-  return pageMetadata(locale, c.productCenter, c.productIntro, "/products");
+  const filters = await searchParams;
+  return pageMetadata(locale, c.productCenter, c.productIntro, "/products", {
+    index: !searchValue(filters, "q") && !searchValue(filters, "category", 120),
+  });
 }
 export default async function Products({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const c = interiorCopy(locale);
-  const { q = "", category = "" } = await searchParams;
-  const search = q.trim().toLowerCase();
+  const paramsForSearch = await searchParams;
+  const q = searchValue(paramsForSearch, "q");
+  const category = searchValue(paramsForSearch, "category", 120);
   const [dbCategories, products] = await Promise.all([
     publishedCategories(),
     publishedProducts(locale, { q, category, size: 100 }),
@@ -54,8 +62,18 @@ export default async function Products({
   const shown = allCategories.filter(
     (x) =>
       (!category || x.slug === category) &&
-      (!search || `${x.name} ${x.summary} ${x.slug}`.toLowerCase().includes(search)),
+      matchesSearch(q, x.name, x.summary, x.slug),
   );
+  const matchingApplications = q && !category
+    ? applications.filter((item) => matchesSearch(q, c[item.key], item.slug, applicationSummary(locale, item.slug)))
+    : [];
+  const catalogPath = href(locale, "/products");
+  function categoryLink(slug: string) {
+    const filter = new URLSearchParams();
+    if (q) filter.set("q", q);
+    if (slug) filter.set("category", slug);
+    return catalogPath + (filter.size ? `?${filter}` : "");
+  }
   return (
     <div className="mi-page">
       <InteriorHero
@@ -96,12 +114,12 @@ export default async function Products({
         <div className="mi-catalog-layout">
           <aside className="mi-sidebar">
             <h2>{c.browseCategories}</h2>
-            <Link href={href(locale, "/products")} aria-current={!category ? "page" : undefined}>
+            <Link href={categoryLink("")} aria-current={!category ? "page" : undefined}>
               {c.allProducts}
             </Link>
             {allCategories.map((x) => (
               <Link
-                href={href(locale, "/products") + `?category=${encodeURIComponent(x.slug)}`}
+                href={categoryLink(x.slug)}
                 aria-current={category === x.slug ? "page" : undefined}
                 key={x.slug}
               >
@@ -110,14 +128,15 @@ export default async function Products({
             ))}
           </aside>
           <section className="mi-catalog-results">
-            <h2>{search ? `${c.searchResults}: “${q}”` : c.browseProducts}</h2>
-            {(search || category) && (
+            <h2>{q ? `${c.searchResults}: “${q}”` : c.browseProducts}</h2>
+            {(q || category) && (
               <p>
                 <Link className="mi-text-link" href={href(locale, "/products")}>
                   {c.clearSearch}
                 </Link>
               </p>
             )}
+            {q && shown.length > 0 && <h3 className="mi-results-heading">{c.browseCategories}</h3>}
             {shown.map((x) => (
               <ProductCard
                 locale={locale}
@@ -127,8 +146,10 @@ export default async function Products({
                 path={`/products/${x.slug}`}
                 key={x.slug}
                 row
+                heading={q ? "h4" : "h3"}
               />
             ))}
+            {q && products.length > 0 && <h3 className="mi-results-heading">{c.browseProducts}</h3>}
             {products.map((x) => (
               <ProductCard
                 locale={locale}
@@ -139,9 +160,24 @@ export default async function Products({
                 sku={x.sku}
                 key={x.id}
                 row
+                heading={q ? "h4" : "h3"}
               />
             ))}
-            {!shown.length && !products.length && (
+            {matchingApplications.length > 0 && (
+              <div className="mi-search-applications">
+                <h3 className="mi-results-heading">{c.applications}</h3>
+                <ul>
+                  {matchingApplications.map((item) => (
+                    <li key={item.slug}>
+                      <Link className="mi-text-link" href={href(locale, `/applications/${item.slug}`)}>
+                        {c[item.key]} <ScienceIcon name="arrow" size={18} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {!shown.length && !products.length && !matchingApplications.length && (
               <div className="mi-empty">
                 <ScienceIcon name="microscope" size={45} />
                 <h2>{c.noResults}</h2>

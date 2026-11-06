@@ -2,6 +2,8 @@ import "server-only";
 import { GoogleAuth } from "google-auth-library";
 import { query, transaction } from "@/lib/db";
 import { ga4Configured, ga4Report } from "@/lib/ga4";
+import { recoverInterruptedJobs } from "@/lib/admin/sync-queue";
+import { sitePreferences } from "@/lib/admin/site-preferences";
 
 export type DataSource = "ga4" | "search_console";
 const sources: DataSource[] = ["ga4", "search_console"];
@@ -10,7 +12,11 @@ const launchDay = "2026-10-14";
 const day = (value: unknown) => value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 const shift = (value: string, days: number) => new Date(Date.parse(`${value}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10);
 const gap = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY);
-const latest = (source: DataSource) => shift(new Date().toISOString().slice(0, 10), source === "ga4" ? 0 : -1);
+const localDay = (timeZone: string) => new Intl.DateTimeFormat("en-CA", {
+  timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+}).format(new Date());
+const latest = (source: DataSource, timezone: string) =>
+  source === "ga4" ? localDay(timezone) : shift(localDay("America/Los_Angeles"), -3);
 
 type State = { source_id: DataSource; enabled: boolean; covered_through: string | Date; last_success_at: string | Date | null; last_error: string | null };
 async function state(source: DataSource) {
@@ -20,10 +26,11 @@ async function state(source: DataSource) {
 }
 
 export async function dataSyncProgress() {
+  const { timezone } = await sitePreferences();
   const result = await Promise.all(sources.map(async (source) => {
     const item = await state(source);
     const through = item ? day(item.covered_through) : null;
-    const availableThrough = latest(source);
+    const availableThrough = latest(source, timezone);
     return { source, enabled: Boolean(item?.enabled), coveredThrough: through, availableThrough,
       pendingDays: item?.enabled && through ? Math.max(0, gap(through, availableThrough)) : 0,
       lastSuccessAt: item?.last_success_at || null, error: item?.last_error || null };
@@ -32,17 +39,19 @@ export async function dataSyncProgress() {
 }
 
 export async function queueDataSync(source: DataSource, onOpen = false) {
+  const { timezone } = await sitePreferences();
+  await recoverInterruptedJobs({ query }, source);
   return transaction(async (tx) => {
     const locked = await tx.query<State>(`SELECT s.id AS source_id,s.enabled,d.covered_through,s.last_success_at,s.last_error
       FROM sync_sources s JOIN data_sync_state d ON d.source_id=s.id WHERE s.id=$1 FOR UPDATE OF s`, [source]);
     const item = locked.rows[0];
     if (!item?.enabled) return false;
     const through = day(item.covered_through);
-    const target = latest(source);
+    const target = latest(source, timezone);
     const behind = gap(through, target);
     const last = item.last_success_at ? new Date(item.last_success_at).getTime() : 0;
     const due = behind > 3 || Date.now() - last >= 72 * 60 * 60_000;
-    const refresh = onOpen && behind <= 0 && Date.now() - last >= 15 * 60_000;
+    const refresh = behind <= 0 && (due || (onOpen && Date.now() - last >= 15 * 60_000));
     if (!(behind > 0 && (onOpen || due)) && !refresh) return false;
     const active = await tx.query(`SELECT id FROM sync_jobs WHERE source_id=$1 AND
       (status IN ('pending','running') OR (status='failed' AND attempt<max_attempts)) LIMIT 1`, [source]);
@@ -85,7 +94,7 @@ async function reportSearchConsole(start: string, end: string) {
   for (let rowStart = 0; rowStart < 50_000; rowStart += 1000) {
     const response = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
       method: "POST", headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["date", "page", "query", "country", "device"], dataState: "all", rowLimit: 1000, startRow: rowStart }),
+      body: JSON.stringify({ startDate: start, endDate: end, dimensions: ["date", "page", "query", "country", "device"], dataState: "final", rowLimit: 1000, startRow: rowStart }),
       cache: "no-store", signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok) throw new Error(`SEARCH_CONSOLE_HTTP_${response.status}`);
@@ -113,7 +122,7 @@ export async function runDataChunk(source: DataSource) {
   const item = await state(source);
   if (!item?.enabled) return 0;
   const through = day(item.covered_through);
-  const target = latest(source);
+  const target = latest(source, (await sitePreferences()).timezone);
   const behind = gap(through, target);
   const start = behind > 0 ? shift(through, 1) : [launchDay, shift(target, -2)].sort().at(-1)!;
   const end = behind > 0 ? shift(start, Math.min(behind - 1, source === "ga4" ? 2 : 0)) : target;

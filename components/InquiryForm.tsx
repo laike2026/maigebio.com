@@ -41,8 +41,18 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
     };
     const observer = new IntersectionObserver(report, { threshold: 0.25 });
     observer.observe(form);
+    const actions = form.querySelector(".form-bottom");
+    const controls = new IntersectionObserver(([entry]) => {
+      actions?.toggleAttribute("data-in-view", entry.isIntersecting);
+    }, { rootMargin: "0px 0px 60px" });
+    if (actions) controls.observe(actions);
     window.addEventListener("maige-analytics-consent", report);
-    return () => { observer.disconnect(); window.removeEventListener("maige-analytics-consent", report); };
+    return () => {
+      observer.disconnect();
+      controls.disconnect();
+      actions?.removeAttribute("data-in-view");
+      window.removeEventListener("maige-analytics-consent", report);
+    };
   }, [formId, initialProduct]);
 
   function focus(event: FocusEvent<HTMLFormElement>) {
@@ -71,15 +81,18 @@ export default function InquiryForm({ locale, initialProduct = "", productName =
       const params = new URLSearchParams(window.location.search);
       const response = await fetch("/api/inquiry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...values, productName, locale, sourcePage: window.location.pathname, pageUrl: window.location.origin + window.location.pathname, referrer: document.referrer.slice(0, 1000), utmSource: params.get("utm_source") || "", utmMedium: params.get("utm_medium") || "", utmCampaign: params.get("utm_campaign") || "", utmContent: params.get("utm_content") || "", utmTerm: params.get("utm_term") || "" }) });
       if (!response.ok) throw new Error("submit failed");
-      const result: { delivery?: string } = await response.json();
+      const result: { delivery?: string; duplicate?: boolean } = await response.json();
       if (result.delivery === "email" || result.delivery === "saved_pending") {
-        window.gtag?.("event", "generate_lead", { method: "contact_form" });
-        trackEvent("form_submit_success", { formId });
+        if (!result.duplicate && trackingAllowed()) {
+          window.gtag?.("event", "generate_lead", { method: "contact_form" });
+          trackEvent("form_submit_success", { formId });
+        }
         setStatus(result.delivery === "email" ? "success" : "saved_pending");
       } else {
         throw new Error("delivery unconfirmed");
       }
       form.reset();
+      selectedSpecs.current = "";
     } catch { trackEvent("form_submit_failure", { formId }); setStatus("error"); }
   }
 

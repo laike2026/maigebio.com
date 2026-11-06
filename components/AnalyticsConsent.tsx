@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/site";
+import type { Metric } from "web-vitals";
+import { trackingAllowed } from "@/lib/tracking";
 
 type Choice = "accepted" | "declined" | "unset";
 
@@ -37,6 +39,7 @@ export default function AnalyticsConsent({ locale, measurementId }: { locale: Lo
   const [showSettings, setShowSettings] = useState(false);
   const lastPath = useRef<string | null>(null);
   const loaded = useRef(false);
+  const measuring = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
@@ -74,6 +77,25 @@ export default function AnalyticsConsent({ locale, measurementId }: { locale: Lo
         sendPageView(pathname);
         lastPath.current = pathname;
         loaded.current = true;
+        if (!measuring.current) {
+          measuring.current = true;
+          const landingPath = new URL(
+            performance.getEntriesByType("navigation")[0]?.name || location.href,
+          ).pathname;
+          void import("web-vitals").then(({ onCLS, onINP, onLCP }) => {
+            const report = (metric: Metric) => {
+              if (!trackingAllowed()) return;
+              window.gtag?.("event", `web_vital_${metric.name.toLowerCase()}`, {
+                value: metric.name === "CLS" ? Math.round(metric.value * 1000) : Math.round(metric.value),
+                metric_rating: metric.rating,
+                page_path: landingPath,
+              });
+            };
+            onCLS(report);
+            onINP(report);
+            onLCP(report);
+          }).catch(() => {});
+        }
       }}
     />}
     {visible ? <section className="analytics-consent" aria-label={c.settings}>

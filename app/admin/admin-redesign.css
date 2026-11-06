@@ -212,3 +212,45 @@
 .admin-acquisition-grid > div { min-width: 0; }
 .admin-acquisition-grid h3 { font-size: 14px; margin: 0 0 10px; }
 @media (max-width: 760px) { .admin-acquisition-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.admin-mobile-lead-action,
+.admin-mobile-company { display: none; }
+.admin-sync-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 12px;
+  margin-block: 12px;
+}
+.admin-sync-facts div { padding: 12px; border: 1px solid var(--admin-border); border-radius: 8px; }
+.admin-sync-facts dt { color: #526987; font-size: 13px; }
+.admin-sync-facts dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.admin-sync-list { display: grid; gap: 8px; list-style: none; padding: 0; }
+.admin-sync-list li { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+.admin-sync-list small { color: #526987; }
+@media (max-width: 760px) {
+  .admin-table.admin-mobile-leads { min-width: 0; table-layout: fixed; width: 100%; }
+  .admin-mobile-leads :is(th, td) { padding: 9px 5px; white-space: normal; overflow-wrap: anywhere; }
+  .admin-mobile-leads :is([data-field="name"], [data-field="product_interest"], [data-field="submitted_at"], .admin-desktop-company) { display: none; }
+  .admin-mobile-leads .admin-mobile-company { display: block; }
+  .admin-mobile-leads td .admin-mobile-company { margin-top: 3px; color: #526987; font-weight: 400; }
+  .admin-mobile-leads [data-field="select"] { width: 28px; text-align: center; }
+  .admin-mobile-leads [data-field="status_id"] { width: 56px; }
+  .admin-mobile-leads [data-field="action"] { width: 53px; text-align: center; }
+  .admin-mobile-leads td[data-field="company"] { font-weight: 650; }
+  .admin-mobile-leads .admin-row-preview { display: none; }
+  .admin-mobile-lead-action {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 4px;
+    font-weight: 650;
+  }
+  .admin-dashboard-leads .admin-table { min-width: 0; table-layout: fixed; width: 100%; }
+  .admin-dashboard-leads .admin-table :is(th, td) { padding: 8px; white-space: normal; overflow-wrap: anywhere; }
+  .admin-dashboard-leads .admin-table :is(th, td):not([colspan]):is(:nth-child(1), :nth-child(2), :nth-child(4)) { display: none; }
+}
+@media (max-width: 480px) {
+  .admin-sync-panel .admin-section-heading { display: grid; gap: 10px; }
+  .admin-sync-panel .admin-section-heading button { justify-self: start; }
+}

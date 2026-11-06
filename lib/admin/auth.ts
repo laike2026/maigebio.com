@@ -3,6 +3,7 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from "node:util";
 import { cookies, headers } from "next/headers";
 import { query } from "@/lib/db";
+import { requestOriginMatches } from "@/lib/request-origin";
 
 const scrypt = promisify(scryptCallback);
 const COOKIE = "maige_admin_session";
@@ -74,10 +75,7 @@ export async function requireAdmin(module: string, action = "view") {
 }
 
 export async function requestOriginAllowed(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  const allowedHosts = [request.headers.get("host"), request.headers.get("x-forwarded-host"), new URL(request.url).host];
-  return allowedHosts.includes(new URL(origin).host);
+  return requestOriginMatches(request);
 }
 
 export async function audit(action: string, module: string, userId: string | null, objectId = "", before: object | null = null, after: object | null = null, success = true) {

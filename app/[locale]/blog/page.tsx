@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { interiorCopy } from "@/lib/interior-copy";
 import { categories, href, isLocale } from "@/lib/site";
 import { pageMetadata } from "@/lib/seo";
+import { searchValue, type SearchParams } from "@/lib/search";
 import { publishedArticles } from "@/lib/public-content";
 import {
   art,
@@ -16,25 +17,27 @@ import {
 } from "@/components/interiors/Interior";
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParams>;
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const c = interiorCopy(locale);
-  return pageMetadata(locale, c.blogTitle, c.blogIntro, "/blog");
+  return pageMetadata(locale, c.blogTitle, c.blogIntro, "/blog", { index: !searchValue(await searchParams, "q") });
 }
 export default async function Blog({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const c = interiorCopy(locale);
-  const { q = "" } = await searchParams;
+  const q = searchValue(await searchParams, "q");
   const articles = await publishedArticles(locale, { q, size: 100 });
   const [featured, ...rest] = articles;
   return (

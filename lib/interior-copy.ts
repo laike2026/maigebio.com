@@ -107,7 +107,7 @@ const words: Record<string, [string, string, string, string]> = {
     "Сопутствующие продукты",
     "Productos relacionados",
   ],
-  productEnquiry: ["Product enquiry", "استفسار عن منتج", "Запрос о продукции", "Consulta de producto"],
+  productEnquiry: ["Product inquiry", "استفسار عن منتج", "Запрос о продукции", "Consulta de producto"],
   samplePrep: ["Sample preparation", "تحضير العينة", "Подготовка образца", "Preparación de muestras"],
   bufferExchange: [
     "Dialysis & buffer exchange",
@@ -219,7 +219,7 @@ const words: Record<string, [string, string, string, string]> = {
     "Cuéntenos qué necesita su investigación",
   ],
   emailUs: ["Email us", "راسلنا", "Напишите нам", "Escríbanos"],
-  sendEnquiry: ["Send us an enquiry", "أرسل لنا استفساراً", "Отправьте запрос", "Envíenos una consulta"],
+  sendEnquiry: ["Send an inquiry", "أرسل لنا استفساراً", "Отправьте запрос", "Envíenos una consulta"],
   pleaseShare: [
     "To help us assist you, please share:",
     "لمساعدتك يرجى مشاركة:",

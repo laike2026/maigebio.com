@@ -9,6 +9,7 @@ import PrimaryNavigation from "./PrimaryNavigation";
 import { getCopy } from "@/lib/i18n";
 import { href, type Locale } from "@/lib/site";
 import { getContactSettings } from "@/lib/contact-settings";
+import { procurementLabel } from "@/lib/procurement";
 
 function Logo({ locale, light = false }: { locale: Locale; light?: boolean }) {
   return <Link className={`brand${light ? " brand-light" : ""}`} href={href(locale)} aria-label="MAIGE home">
@@ -21,10 +22,11 @@ export default async function SiteShell({ locale, children }: { locale: Locale; 
   const contact = await getContactSettings();
   const internalSession = (await cookies()).has("maige_admin_session");
   return <>
+    <a className="skip-link" href="#main-content">{procurementLabel(locale, "skip")}</a>
     {internalSession && <span data-maige-internal-session hidden />}
     <div className="topbar"><div className="container topbar-inner"><span>{c.trusted}</span><div className="topbar-actions"><a href="mailto:info@maigebio.com">✉ info@maigebio.com</a><a href={contact.whatsappUrl} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">✆</span> {contact.whatsappLabel}</a><LanguageSwitcher locale={locale} /></div></div></div>
     <header className="site-header"><div className="container header-inner"><Logo locale={locale} /><PrimaryNavigation locale={locale} /><div className="header-actions"><Link className="header-search" href={href(locale, "/products")} aria-label={c.search}>⌕</Link><Link className="button button-green" href={href(locale, "/contact")}>{c.quote}</Link></div></div></header>
-    <main>{children}</main>
+    <main id="main-content" tabIndex={-1}>{children}</main>
     <footer className="site-footer"><div className="container footer-grid"><div className="footer-brand"><Logo locale={locale} light /><p>{c.footerLine}</p></div><div><h3>{c.footerProducts}</h3><Link href={href(locale, "/products/dialysis-tubing")}>{c.dialysis}</Link><Link href={href(locale, "/products/elisa-kits")}>{c.elisa}</Link><Link href={href(locale, "/products/lab-consumables")}>{c.labConsumables}</Link><Link href={href(locale, "/oem-odm")}>{c.solutions}</Link></div><div><h3>{c.footerResources}</h3><Link href={href(locale, "/resources")}>{c.resources}</Link><Link href={href(locale, "/blog")}>{c.blogTitle}</Link><Link href={href(locale, "/faq")}>{c.faqTitle}</Link></div><div><h3>{c.footerAbout}</h3><Link href={href(locale, "/about")}>{c.aboutTitle}</Link><Link href={href(locale, "/manufacturing-quality")}>{c.qualityTitle}</Link><Link href={href(locale, "/contact")}>{c.navContact}</Link></div><div className="footer-contact"><h3>{c.footerUpdates}</h3><p>{c.footerUpdatesText}</p><a href="mailto:info@maigebio.com">info@maigebio.com</a>{contact.addressUrl && <a data-track="address" data-placement="footer" href={contact.addressUrl} target="_blank" rel="noopener noreferrer">{contact.addressLabel || "View address"} ↗</a>}<a className="footer-whatsapp" href={contact.whatsappUrl} target="_blank" rel="noopener noreferrer">◉ {contact.whatsappLabel} ↗</a></div></div><div className="container footer-bottom"><span>© {new Date().getFullYear()} {c.footerRights}</span><div><Link href={href(locale, "/privacy-policy")}>{c.privacyTitle}</Link><Link href={href(locale, "/terms")}>{c.termsTitle}</Link></div></div></footer>
     <a className="whatsapp-float" href={contact.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={c.phoneLabel}><span className="wa-icon" aria-hidden="true">✆</span><span>{contact.whatsappLabel}</span></a>
     <AnalyticsConsent locale={locale} measurementId={internalSession ? undefined : process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />

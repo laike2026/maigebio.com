@@ -10,6 +10,7 @@ import { interiorCopy } from "@/lib/interior-copy";
 import { categories, href, isLocale } from "@/lib/site";
 import { getContactSettings } from "@/lib/contact-settings";
 import { pageMetadata } from "@/lib/seo";
+import { searchValue, type SearchParams } from "@/lib/search";
 import {
   art,
   InteriorHero,
@@ -33,7 +34,7 @@ const sectionMap = {
 } as const;
 type Section = keyof typeof sectionMap;
 function isSection(value: string): value is Section {
-  return value in sectionMap;
+  return Object.hasOwn(sectionMap, value);
 }
 export async function generateStaticParams() {
   return ["en", "ar", "ru", "es"].flatMap((locale) =>
@@ -42,27 +43,39 @@ export async function generateStaticParams() {
 }
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; section: string }>;
+  searchParams: Promise<SearchParams>;
 }): Promise<Metadata> {
   const { locale, section } = await params;
   if (!isLocale(locale) || !isSection(section)) return {};
   const c = interiorCopy(locale);
   const [title, intro] = sectionMap[section];
-  return pageMetadata(locale, c[title], c[intro], `/${section}`);
+  const inputs = await searchParams;
+  return pageMetadata(locale, c[title], c[intro], `/${section}`, {
+    index: !searchValue(inputs, "q") && !searchValue(inputs, "document", 32) && !searchValue(inputs, "product"),
+  });
 }
 export default async function SectionPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string; section: string }>;
-  searchParams: Promise<{ q?: string; document?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { locale, section } = await params;
   if (!isLocale(locale) || !isSection(section)) notFound();
   const c = interiorCopy(locale);
   const [titleKey, introKey] = sectionMap[section];
-  const { q = "", document: documentKey = "" } = await searchParams;
+  const inputs = await searchParams;
+  const q = searchValue(inputs, "q");
+  const documentKey = searchValue(inputs, "document", 32);
+  const requestedProduct = searchValue(inputs, "product", 160);
+  const requestedFamily = searchValue(inputs, "family", 32);
+  const familyName = requestedFamily === "dialysis-tubing" ? "Dialysis Tubing"
+    : requestedFamily === "elisa-kits" ? "ELISA Kits"
+      : requestedFamily === "lab-consumables" ? "Laboratory Consumables" : "";
   const contact = section === "contact" ? await getContactSettings() : null;
   const legal = section === "privacy-policy" || section === "terms";
   const title =
@@ -319,12 +332,11 @@ export default async function SectionPage({
               <h2>{c.sendEnquiry}</h2>
               <InquiryForm
                 locale={locale}
-                initialProduct={documentKey ? "Other" : ""}
-                initialMessage={
-                  ["catalog", "datasheets", "notes", "guides"].includes(documentKey)
-                    ? c[documentKey]
-                    : ""
-                }
+                initialProduct={familyName || (documentKey ? "Other" : "")}
+                productName={requestedProduct}
+                initialMessage={["catalog", "datasheets", "notes", "guides"].includes(documentKey)
+                  ? [c[documentKey], requestedProduct].filter(Boolean).join(" · ")
+                  : ""}
               />
             </div>
           </div>

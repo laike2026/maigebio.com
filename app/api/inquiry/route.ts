@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { z } from "zod";
-import { query, transaction } from "@/lib/db";
+import { transaction } from "@/lib/db";
+import { sendInquiryNotification } from "@/lib/inquiry-notification";
+import { requestOriginMatches } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
 
@@ -46,45 +47,8 @@ function browserName(agent: string) {
 
 function deviceType(agent: string) { return /Mobile|Android|iPhone/i.test(agent) ? "mobile" : /iPad|Tablet/i.test(agent) ? "tablet" : "desktop"; }
 
-export async function sendInquiryNotification(id: string) {
-  const result = await query<{
-    id: string; submitted_at: Date; name: string; company: string; email: string; country: string; product_interest: string;
-    locale: string; source_page: string; utm_source: string; message: string; notification_status: string;
-  }>("SELECT id,submitted_at,name,company,email,country,product_interest,locale,source_page,utm_source,message,notification_status FROM form_submissions WHERE id=$1 AND deleted_at IS NULL", [id]);
-  const entry = result.rows[0];
-  if (!entry) return { ok: false, error: "not_found" };
-  if (entry.notification_status === "sent") return { ok: true, delivery: "already_sent" };
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "email_not_configured" };
-  const messageText = [
-    `MAIGE website enquiry ${entry.id}`, `Received: ${new Date(entry.submitted_at).toISOString()}`,
-    `Name: ${entry.name}`, `Company: ${entry.company}`, `Email: ${entry.email}`, `Country / Region: ${entry.country}`,
-    `Product: ${entry.product_interest}`, `Language: ${entry.locale}`, `Page: ${entry.source_page}`,
-    `Campaign source: ${entry.utm_source || "(none)"}`, "", "Message:", entry.message,
-  ].join("\n");
-  try {
-    const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      from: process.env.INQUIRY_FROM_EMAIL || "MAIGE Website <inquiries@maigebio.com>",
-      to: [process.env.INQUIRY_TO_EMAIL || "info@maigebio.com"],
-      replyTo: entry.email,
-      subject: "New MAIGE website enquiry",
-      text: messageText,
-      headers: { "X-MAIGE-Inquiry": entry.id },
-    });
-    if (error || !data?.id) throw new Error(error?.name || "missing_message_id");
-    await query("UPDATE form_submissions SET notification_status='sent',notification_attempts=notification_attempts+1,message_id=$2,updated_at=now() WHERE id=$1", [id, data.id]);
-    return { ok: true, delivery: "email" };
-  } catch (error) {
-    console.error("Inquiry email notification failed", error instanceof Error ? error.name : "unknown");
-    await query("UPDATE form_submissions SET notification_status='failed',notification_attempts=notification_attempts+1,updated_at=now() WHERE id=$1", [id]);
-    return { ok: false, error: "email_failed" };
-  }
-}
-
 export async function POST(request: Request) {
-  const origin = request.headers.get("origin");
-  if (origin && ![request.headers.get("host"), request.headers.get("x-forwarded-host"), new URL(request.url).host].includes(new URL(origin).host)) return NextResponse.json({ code: "BAD_ORIGIN" }, { status: 403 });
+  if (request.headers.has("origin") && !requestOriginMatches(request)) return NextResponse.json({ code: "BAD_ORIGIN" }, { status: 403 });
   const size = Number(request.headers.get("content-length") || 0);
   if (size > 12_000) return NextResponse.json({ code: "TOO_LARGE" }, { status: 413 });
   let raw: unknown;
@@ -95,23 +59,37 @@ export async function POST(request: Request) {
   if (data.website.trim()) return NextResponse.json({ ok: true }, { status: 201 });
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const ipKey = ipHash(ip);
+  const email = data.email.toLowerCase();
+  const product = data.productName || data.product;
   try {
-    const recent = await query<{ count: number }>("SELECT count(*)::int AS count FROM form_submissions WHERE ip_hash=$1 AND submitted_at>now()-interval '1 minute'", [ipKey]);
-    if ((recent.rows[0]?.count || 0) >= 5) return NextResponse.json({ code: "RATE_LIMITED", message: "提交过于频繁，请稍后再试" }, { status: 429 });
-    const previous = await query<{ id: string }>("SELECT id FROM form_submissions WHERE lower(email)=lower($1) AND submitted_at>now()-interval '24 hours' ORDER BY submitted_at DESC LIMIT 1", [data.email]);
     const agent = request.headers.get("user-agent") || "";
-    const id = await transaction(async (tx) => {
+    const receipt = await transaction(async (tx) => {
+      // Serialize retries by email before comparing and creating a lead.
+      await tx.query("SELECT pg_advisory_xact_lock(hashtext($1), 1)", [email]);
+      const duplicate = await tx.query<{ id: string; notification_status: string }>(`
+        SELECT id,notification_status FROM form_submissions
+        WHERE lower(email)=$1 AND product_interest=$2 AND message=$3 AND name=$4 AND company=$5
+          AND country=$6 AND phone=$7 AND deleted_at IS NULL AND submitted_at>now()-interval '10 minutes'
+        ORDER BY submitted_at DESC LIMIT 1`, [email, product, data.message, data.name, data.company, data.country, data.phone]);
+      if (duplicate.rows[0]) return { id: duplicate.rows[0].id, sent: duplicate.rows[0].notification_status === "sent", duplicate: true };
+      await tx.query("SELECT pg_advisory_xact_lock(hashtext($1), 2)", [ipKey]);
+      const recent = await tx.query<{ count: number }>("SELECT count(*)::int AS count FROM form_submissions WHERE ip_hash=$1 AND submitted_at>now()-interval '1 minute'", [ipKey]);
+      if ((recent.rows[0]?.count || 0) >= 5) return null;
+      const previous = await tx.query<{ id: string }>("SELECT id FROM form_submissions WHERE lower(email)=$1 AND deleted_at IS NULL AND submitted_at>now()-interval '24 hours' ORDER BY submitted_at DESC LIMIT 1", [email]);
       const inserted = await tx.query<{ id: string }>(
         `INSERT INTO form_submissions(form_id,type,name,company,email,phone,country,message,product_interest,source_page,page_url,referrer,utm_source,utm_medium,utm_campaign,utm_content,utm_term,locale,consent,ip_hash,browser,device_type,duplicate_of)
          VALUES('contact','contact',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,true,$17,$18,$19,$20) RETURNING id`,
-        [data.name, data.company, data.email.toLowerCase(), data.phone, data.country, data.message, data.productName || data.product, data.sourcePage, data.pageUrl, data.referrer, data.utmSource, data.utmMedium, data.utmCampaign, data.utmContent, data.utmTerm, data.locale, ipKey, browserName(agent), deviceType(agent), previous.rows[0]?.id || null]);
+        [data.name, data.company, email, data.phone, data.country, data.message, product, data.sourcePage, data.pageUrl, data.referrer, data.utmSource, data.utmMedium, data.utmCampaign, data.utmContent, data.utmTerm, data.locale, ipKey, browserName(agent), deviceType(agent), previous.rows[0]?.id || null]);
       const submissionId = inserted.rows[0].id;
-      await tx.query("INSERT INTO sync_jobs(source_id,idempotency_key,status) VALUES('email_retry',$1,'pending') ON CONFLICT DO NOTHING", [`email:${submissionId}`]);
+      await tx.query("INSERT INTO sync_jobs(source_id,idempotency_key,status,run_after) VALUES('email_retry',$1,'pending',now()+interval '5 minutes') ON CONFLICT DO NOTHING", [`email:${submissionId}`]);
       await tx.query("INSERT INTO notifications(type,title,body) VALUES('new_lead','收到新询盘',$1)", [`询盘 ${submissionId}`]);
-      return submissionId;
+      return { id: submissionId, sent: false, duplicate: false };
     });
-    const notification = await sendInquiryNotification(id);
-    return NextResponse.json({ ok: true, id, delivery: notification.ok ? notification.delivery : "saved_pending" }, { status: 201 });
+    if (!receipt) return NextResponse.json({ code: "RATE_LIMITED" }, { status: 429 });
+    const sent = receipt.duplicate ? receipt.sent : await sendInquiryNotification(receipt.id)
+      .then((result) => result.ok)
+      .catch(() => false);
+    return NextResponse.json({ ok: true, id: receipt.id, duplicate: receipt.duplicate, delivery: sent ? "email" : "saved_pending" }, { status: 201 });
   } catch (error) {
     console.error("Inquiry storage failed", error instanceof Error ? error.name : "unknown");
     return NextResponse.json({ code: "STORAGE_UNAVAILABLE", message: "询盘暂时无法接收，请稍后重试" }, { status: 503 });

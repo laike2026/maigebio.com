@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { IconArrowsMaximize, IconX } from "@tabler/icons-react";
 export default function ProductGallery({
   images,
@@ -17,6 +17,7 @@ export default function ProductGallery({
 }) {
   const [selected, setSelected] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
+  const dialogTitle = useId();
   const list = [...new Set(images)].filter(Boolean);
   return (
     <div className="mi-gallery">
@@ -55,10 +56,12 @@ export default function ProductGallery({
       <dialog
         ref={dialog}
         className="mi-image-dialog"
+        aria-labelledby={dialogTitle}
         onClick={(event) => {
           if (event.target === event.currentTarget) dialog.current?.close();
         }}
       >
+        <span className="sr-only" id={dialogTitle}>{enlarge} · {title}</span>
         <button
           className="mi-dialog-close"
           type="button"

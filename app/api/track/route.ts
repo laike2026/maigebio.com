@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { transaction } from "@/lib/db";
 import { sitePreferences } from "@/lib/admin/site-preferences";
+import { requestOriginMatches } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
 
@@ -23,8 +24,7 @@ const devSalt = randomBytes(32).toString("hex");
 
 export async function POST(request: Request) {
   if ((await cookies()).has("maige_admin_session")) return Response.json({ ok: true, ignored: true }, { status: 202 });
-  const origin = request.headers.get("origin");
-  if (origin && ![request.headers.get("host"), request.headers.get("x-forwarded-host"), new URL(request.url).host].includes(new URL(origin).host)) return Response.json({ code: "BAD_ORIGIN" }, { status: 403 });
+  if (request.headers.has("origin") && !requestOriginMatches(request)) return Response.json({ code: "BAD_ORIGIN" }, { status: 403 });
   if (Number(request.headers.get("content-length") || 0) > 2500) return Response.json({ code: "TOO_LARGE" }, { status: 413 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ code: "INVALID_EVENT" }, { status: 400 });

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { interiorCopy } from "@/lib/interior-copy";
 import { applications, categories, isLocale } from "@/lib/site";
 import { pageMetadata } from "@/lib/seo";
+import { applicationSummary } from "@/lib/procurement";
 import {
   applicationArt,
   art,
@@ -30,7 +31,7 @@ export async function generateMetadata({
   const item = applications.find((x) => x.slug === slug);
   if (!item) return {};
   const c = interiorCopy(locale);
-  return pageMetadata(locale, c[item.key], c.applicationsText, `/applications/${slug}`);
+  return pageMetadata(locale, c[item.key], applicationSummary(locale, item.slug), `/applications/${slug}`);
 }
 export default async function ApplicationDetail({
   params,
@@ -86,7 +87,8 @@ export default async function ApplicationDetail({
       <InteriorHero
         locale={locale}
         title={c[item.key]}
-        intro={c.applicationsText}
+        intro={applicationSummary(locale, item.slug)}
+        currentPath={`/applications/${slug}`}
         image={applicationArt[item.motif]}
         crumbs={[{ label: c.applications, path: "/applications" }, { label: c[item.key] }]}
       />

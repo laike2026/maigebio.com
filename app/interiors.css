@@ -258,7 +258,7 @@
 .mi-product-card-copy {
   padding: 24px;
 }
-.mi-product-card h2 {
+.mi-product-card :is(h2, h3, h4) {
   font-size: 1.45rem;
   margin-bottom: 10px;
 }
@@ -282,7 +282,7 @@
 .mi-product-row .mi-product-card-copy {
   padding: 18px 24px;
 }
-.mi-product-row h2 {
+.mi-product-row :is(h2, h3, h4) {
   font-size: 1.65rem;
 }
 .mi-empty {
@@ -300,13 +300,28 @@
 .mi-product-top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 48px;
+  grid-template-areas: "gallery intro" "gallery requirements";
+  grid-template-rows: auto 1fr;
+  gap: 18px 48px;
   align-items: start;
   padding-block: 16px 45px;
 }
-.mi-product-info h1 {
+.mi-product-intro {
+  grid-area: intro;
+  min-inline-size: 0;
+}
+.mi-product-intro h1 {
   font-size: clamp(2rem, 3vw, 2.8rem);
-  margin-bottom: 18px;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.mi-product-info {
+  grid-area: requirements;
+  min-inline-size: 0;
+}
+.mi-gallery {
+  grid-area: gallery;
+  min-inline-size: 0;
 }
 .mi-gallery-main {
   position: relative;
@@ -338,6 +353,7 @@
 }
 .mi-thumbnails {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 14px;
 }
@@ -346,7 +362,9 @@
   border: 1px solid var(--line);
   border-radius: 4px;
   background: #fff;
-  width: 110px;
+  width: min(110px, 28%);
+  min-width: 0;
+  cursor: pointer;
 }
 .mi-thumbnails button[aria-pressed="true"] {
   border: 2px solid var(--blue);
@@ -694,7 +712,7 @@
 .mi-resource-row > div {
   flex: 1;
 }
-.mi-resource-row h2 {
+.mi-resource-row :is(h2, h4) {
   font-size: 1.55rem;
 }
 .mi-resource-row p {
@@ -1097,7 +1115,13 @@ html[dir="rtl"] .mi-actions .button > svg {
   .mi-family-links svg {
     width: 28px;
   }
-  .mi-product-info h1 {
+  .mi-product-top {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "intro" "gallery" "requirements";
+    grid-template-rows: auto;
+    gap: 20px;
+  }
+  .mi-product-intro h1 {
     font-size: 2rem;
   }
   .mi-anchor-nav {
@@ -1419,4 +1443,28 @@ html[dir="rtl"] .mi-actions .button > svg {
 }
 .mi-page h1 {
   font-weight: 700;
+}
+
+.mi-results-heading {
+  margin-block: 20px 8px;
+  font-size: 1.1rem;
+}
+.mi-search-applications,
+.mi-downloads,
+.mi-selection-questions {
+  padding: clamp(16px, 3vw, 28px);
+  background: #eff7fc;
+  border: 1px solid #d8e8f5;
+  border-radius: 8px;
+}
+.mi-search-applications ul,
+.mi-downloads ul {
+  margin-block: 8px 0;
+  padding-inline-start: 20px;
+}
+.mi-selection-questions p {
+  max-inline-size: 72ch;
+}
+.mi-request-heading {
+  margin-block: 24px 12px;
 }

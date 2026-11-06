@@ -1,15 +1,18 @@
 import "server-only";
+import { cache } from "react";
 import { query } from "@/lib/db";
 import type { Locale } from "@/lib/site";
+import { searchPattern } from "@/lib/search";
 
 export type PublicProduct = { id: string; sku: string; slug: string; name: string; summary: string; description_html: string; image_url: string | null; category_slug: string | null; seo: Record<string, unknown>; specifications: unknown[]; features: unknown[]; applications: unknown[]; price_mode: string };
 export type PublicArticle = { id: string; slug: string; title: string; excerpt: string; body_html: string; image_url: string | null; published_at: string; seo: Record<string, unknown> };
 export type PublicCategory = { id: string; slug: string; name: string; summary: string; description_html: string; image_url: string | null; seo: Record<string, unknown> };
+type LocalizedDetail = { base_slug: string; content_locale: Locale; updated_at: string | Date };
 
 export async function publishedProducts(locale: Locale, options: { q?: string; category?: string; page?: number; size?: number; offset?: number; featured?: boolean } = {}) {
   const page = Math.max(1, Math.min(10000, options.page || 1));
   const size = Math.max(1, Math.min(101, options.size || 20));
-  const q = (options.q || "").trim().slice(0, 150);
+  const q = searchPattern(options.q);
   const category = (options.category || "").trim();
   try {
     const rows = await query<PublicProduct>(
@@ -19,25 +22,28 @@ export async function publishedProducts(locale: Locale, options: { q?: string; c
        FROM products p LEFT JOIN product_translations t ON t.product_id=p.id AND t.locale=$1 AND t.translation_status='complete'
        LEFT JOIN product_categories c ON c.id=p.primary_category_id LEFT JOIN media_assets m ON m.id=p.media_id AND m.deleted_at IS NULL
        WHERE p.status='published' AND p.deleted_at IS NULL AND (p.published_at IS NULL OR p.published_at<=now())
-         AND ($2='' OR p.name_en ILIKE '%'||$2||'%' OR p.sku ILIKE '%'||$2||'%')
+         AND ($2='' OR t.name ILIKE $2 OR p.name_en ILIKE $2 OR p.sku ILIKE $2
+           OR t.summary ILIKE $2 OR p.summary_en ILIKE $2 OR replace(p.slug,'-',' ') ILIKE $2)
          AND ($3='' OR c.slug=$3) AND ($6=false OR p.featured=true)
        ORDER BY p.pinned DESC,p.sort_order ASC,p.published_at DESC,p.id DESC LIMIT $4 OFFSET $5`, [locale, q, category, size, options.offset ?? (page - 1) * size, Boolean(options.featured)]);
     return rows.rows;
   } catch (error) { console.error("Public product read failed", error instanceof Error ? error.name : "unknown"); return []; }
 }
 
-export async function publishedProduct(locale: Locale, slug: string) {
+export const publishedProduct = cache(async (locale: Locale, slug: string) => {
   try {
-    const rows = await query<PublicProduct>(
+    const rows = await query<PublicProduct & LocalizedDetail>(
       `SELECT p.id,p.sku,COALESCE(NULLIF(t.slug,''),p.slug) AS slug,COALESCE(NULLIF(t.name,''),p.name_en) AS name,
        COALESCE(NULLIF(t.summary,''),p.summary_en) AS summary,COALESCE(NULLIF(t.description_html,''),p.description_html_en) AS description_html,
-       m.url AS image_url,c.slug AS category_slug,COALESCE(t.seo,p.seo) AS seo,p.specifications,p.features,p.applications,p.price_mode
+       m.url AS image_url,c.slug AS category_slug,COALESCE(t.seo,p.seo) AS seo,p.specifications,p.features,p.applications,p.price_mode,
+       p.slug AS base_slug,COALESCE(t.locale,'en') AS content_locale,p.updated_at
        FROM products p LEFT JOIN product_translations t ON t.product_id=p.id AND t.locale=$1 AND t.translation_status='complete'
        LEFT JOIN product_categories c ON c.id=p.primary_category_id LEFT JOIN media_assets m ON m.id=p.media_id AND m.deleted_at IS NULL
-       WHERE (p.slug=$2 OR t.slug=$2) AND p.status='published' AND p.deleted_at IS NULL AND (p.published_at IS NULL OR p.published_at<=now()) LIMIT 1`, [locale, slug]);
+       WHERE (p.slug=$2 OR t.slug=$2) AND p.status='published' AND p.deleted_at IS NULL AND (p.published_at IS NULL OR p.published_at<=now())
+       ORDER BY (t.slug=$2) DESC NULLS LAST,p.id LIMIT 1`, [locale, slug]);
     return rows.rows[0] || null;
   } catch { return null; }
-}
+});
 
 export async function publishedProductRelations(productId: string) {
   try {
@@ -77,24 +83,27 @@ export async function publishedArticles(locale: Locale, options: { q?: string; c
        FROM news_articles a LEFT JOIN news_translations t ON t.article_id=a.id AND t.locale=$1 AND t.translation_status='complete'
        LEFT JOIN media_assets m ON m.id=a.cover_id AND m.deleted_at IS NULL LEFT JOIN news_categories c ON c.id=a.category_id
        WHERE a.status='published' AND a.deleted_at IS NULL
-       AND ($2='' OR a.title_en ILIKE '%'||$2||'%') AND ($3='' OR c.slug=$3)
-       ORDER BY a.pinned DESC,a.published_at DESC,a.id DESC LIMIT $4 OFFSET $5`, [locale, (options.q || "").slice(0, 150), options.category || "", size, options.offset ?? (page - 1) * size]);
+       AND ($2='' OR t.title ILIKE $2 OR a.title_en ILIKE $2 OR t.excerpt ILIKE $2 OR a.excerpt_en ILIKE $2)
+       AND ($3='' OR c.slug=$3)
+       ORDER BY a.pinned DESC,a.published_at DESC,a.id DESC LIMIT $4 OFFSET $5`, [locale, searchPattern(options.q), options.category || "", size, options.offset ?? (page - 1) * size]);
     return rows.rows;
   } catch { return []; }
 }
 
-export async function publishedArticle(locale: Locale, slug: string) {
+export const publishedArticle = cache(async (locale: Locale, slug: string) => {
   try {
-    const rows = await query<PublicArticle>(
+    const rows = await query<PublicArticle & LocalizedDetail & { author: string }>(
       `SELECT a.id,COALESCE(NULLIF(t.slug,''),a.slug) AS slug,COALESCE(NULLIF(t.title,''),a.title_en) AS title,
        COALESCE(NULLIF(t.excerpt,''),a.excerpt_en) AS excerpt,COALESCE(NULLIF(t.body_html,''),a.body_html_en) AS body_html,
-       m.url AS image_url,a.published_at,COALESCE(t.seo,a.seo) AS seo
+       m.url AS image_url,a.published_at,COALESCE(t.seo,a.seo) AS seo,a.author,
+       a.slug AS base_slug,COALESCE(t.locale,'en') AS content_locale,a.updated_at
        FROM news_articles a LEFT JOIN news_translations t ON t.article_id=a.id AND t.locale=$1 AND t.translation_status='complete'
        LEFT JOIN media_assets m ON m.id=a.cover_id AND m.deleted_at IS NULL
-       WHERE (a.slug=$2 OR t.slug=$2) AND a.status='published' AND a.deleted_at IS NULL LIMIT 1`, [locale, slug]);
+       WHERE (a.slug=$2 OR t.slug=$2) AND a.status='published' AND a.deleted_at IS NULL AND (a.published_at IS NULL OR a.published_at<=now())
+       ORDER BY (t.slug=$2) DESC NULLS LAST,a.id LIMIT 1`, [locale, slug]);
     return rows.rows[0] || null;
   } catch { return null; }
-}
+});
 
 export async function publishedArticleRelations(articleId: string) {
   try {

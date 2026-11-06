@@ -1,6 +1,5 @@
 "use client";
 import { useRef } from "react";
-import Link from "next/link";
 import { IconArrowRight } from "@tabler/icons-react";
 export default function ProductSpecPicker({
   title,
@@ -46,9 +45,9 @@ export default function ProductSpecPicker({
           {quote}
           <IconArrowRight size={19} aria-hidden="true" />
         </a>
-        <Link className="button button-outline" href={resourceUrl}>
+        <a className="button button-outline" href={resourceUrl}>
           {information}
-        </Link>
+        </a>
       </div>
     </div>
   );

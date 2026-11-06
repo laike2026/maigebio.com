@@ -7,7 +7,7 @@ This repository contains the MAIGE multilingual B2B website (`/en`, `/ar`, `/ru`
 - Next.js App Router, React and TypeScript serve the website, admin UI and API.
 - PostgreSQL stores users, sessions, content, leads, tracking aggregates, SEO data, jobs and audit records. Local development uses **persistent PGlite** in `.data/postgres`; production requires `DATABASE_URL` for PostgreSQL.
 - Media is kept in `.data/media` locally, in private Vercel Blob storage on Vercel, or in S3-compatible storage for Docker. Images are converted to WebP and thumbnails are generated.
-- Vercel Cron calls `/api/cron` daily for maintenance and `/api/cron/data-sync` daily to check whether GA4/Search Console have gone 72 hours without a successful update. Opening the admin starts a missing-day catch-up. The Docker worker performs the same checks for self-hosted use. Its token is `CRON_SECRET`.
+- Vercel Cron runs daily maintenance, site health and a GA4/Search Console freshness check. Admin users with sync permission can start a missing-day catch-up. The Docker worker uses the same protected endpoints.
 - GA4 reporting uses the server-side service account. Browser events only run after the visitor accepts analytics cookies. Address/WhatsApp clicks and the form funnel are shown separately from verified database enquiries.
 - English is the default editorial language; products and articles have independent Arabic, Russian and Spanish versions. Incomplete translations fall back to English.
 
@@ -49,7 +49,7 @@ See [operations](docs/admin-operations.md) for migration, scheduler, backup/rest
 
 - GA4 browser measurement: `NEXT_PUBLIC_GA_MEASUREMENT_ID` (the current MAIGE stream is `G-MN1LN6LZ18`). Browser page views and events require visitor opt-in.
 - GA4 server report: `GA4_PROPERTY_ID=558913614` plus `GOOGLE_SERVICE_ACCOUNT_JSON` (Vercel sensitive variable) or a local ignored `GOOGLE_APPLICATION_CREDENTIALS` file. Never put the service account JSON in `NEXT_PUBLIC_*` or Git.
-- Search Console: the service account needs read access to `sc-domain:maigebio.com` and the Search Console API enabled. Recent dates can be provisional; the backend refreshes the latest three available days on later opens.
+- Search Console: enable the API and give the service account read access to `sc-domain:maigebio.com`. Use write access for scheduled sitemap submissions. The sync view separates submission acknowledgement, Google processing, URL inspection and finalized Search Analytics dates.
 - Address tracking remains unconfigured until a verified business address/map URL is supplied. WhatsApp opens the short label while linking to the approved `wa.me` destination.
 - Form field tracking stores only completion events. It never stores unfinished input values. Submitted enquiries are saved separately in PostgreSQL before email is attempted.
 
