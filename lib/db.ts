@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { QueryResultRow } from "pg";
+import { pinPostgresTlsMode } from "@/lib/postgres-url";
 
 export type DbRow = Record<string, unknown>;
 export type QueryResult<T extends DbRow = DbRow> = { rows: T[]; rowCount: number };
@@ -17,7 +18,7 @@ const state = globalThis as typeof globalThis & { __maigeDb?: DbState };
 async function createClient(): Promise<DbClient> {
   if (process.env.DATABASE_URL) {
     const { Pool } = await import("pg");
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5, idleTimeoutMillis: 20_000 });
+    const pool = new Pool({ connectionString: pinPostgresTlsMode(process.env.DATABASE_URL), max: 5, idleTimeoutMillis: 20_000 });
     return {
       async query<T extends DbRow = DbRow>(sql: string, params: unknown[] = []) {
         const result = await pool.query<QueryResultRow>(sql, params);
