@@ -14,7 +14,7 @@ import { procurementLabel } from "@/lib/procurement";
 
 function Logo({ locale, light = false }: { locale: Locale; light?: boolean }) {
   return <Link className={`brand${light ? " brand-light" : ""}`} href={href(locale)} aria-label="MAIGE home">
-    <Image className="brand-lockup" src={light ? "/images/brand/maige-footer.svg" : "/images/brand/maige-horizontal.png"} width={760} height={210} alt="MAIGE Bioscience logo" priority={!light} />
+    <Image className="brand-lockup" src={light ? "/images/brand/maige-footer.svg?v=2" : "/images/brand/maige-horizontal.png"} width={760} height={210} alt="MAIGE Bioscience logo" priority={!light} />
   </Link>;
 }
 
