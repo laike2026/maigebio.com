@@ -5,7 +5,7 @@ import { audit, createSession, requestOriginAllowed, verifyPassword } from "@/li
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
-const schema = z.object({ identifier: z.string().trim().min(1).max(254), password: z.string().min(1).max(500), remember: z.boolean().optional() });
+const schema = z.object({ identifier: z.string().trim().min(1).max(254), password: z.string().min(1), remember: z.boolean().optional() });
 type LoginUser = { id: string; email: string; password_hash: string; locked_until: Date | null; active: boolean };
 
 export async function POST(request: Request) {

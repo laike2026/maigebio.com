@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
+import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { readFile, realpath, rm } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -10,8 +10,9 @@ const root = process.cwd();
 const data = join(root, ".data", `admin-e2e-${randomUUID()}`);
 const port = 3127;
 const base = `http://127.0.0.1:${port}`;
-const initialPassword = randomBytes(6).toString("base64url");
-const password = randomBytes(6).toString("base64url");
+const initialPassword = randomBytes(5).toString("base64url");
+const password = "1234567";
+const resetToken = randomBytes(32).toString("hex");
 const env = {
   ...process.env, NODE_ENV: "development", MAIGE_DATA_DIR: data,
   NEXT_PUBLIC_SITE_URL: base, NEXT_PUBLIC_INDEXABLE: "true", NEXT_TELEMETRY_DISABLED: "1",
@@ -30,6 +31,7 @@ command("scripts/create-admin.mjs");
 const fixture = new PGlite(join(data, "postgres"));
 try {
   await fixture.query("INSERT INTO sync_jobs(source_id,idempotency_key,status,attempt,started_at) VALUES('ga4','qa-interrupted','running',1,now()-interval '10 minutes')");
+  await fixture.query("INSERT INTO password_resets(user_id,token_hash,expires_at) SELECT id,$1,now()+interval '1 hour' FROM users WHERE username='admin'", [createHash("sha256").update(resetToken).digest("hex")]);
 } finally { await fixture.close(); }
 const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: root, env, stdio: ["ignore", "pipe", "pipe"] });
 let logs = "";
@@ -69,10 +71,20 @@ try {
   assert.equal(firstLogin.value.redirect, "/admin/change-password");
   assert.equal((await request("/api/admin/products")).status, 403, "initial password must be changed");
   assert.equal((await request("/api/admin/sync/refresh", "POST", {})).status, 403);
-  assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: "1234567" })).status, 400);
+  assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: "123456" })).status, 400);
   assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: initialPassword, newPassword: password })).status, 200);
   assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin@maigebio.local", password }, false)).status, 200);
   assert.equal((await request("/api/admin/auth/account", "PATCH", { username: "qa-admin", currentPassword: password })).status, 200);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin", password }, false)).status, 200);
+  assert.equal((await request("/api/admin/auth/reset-password", "POST", { token: resetToken, newPassword: "123456" }, false)).status, 400);
+  assert.equal((await request("/api/admin/auth/reset-password", "POST", { token: resetToken, newPassword: password }, false)).status, 200);
+  assert.equal((await request("/api/admin/products")).status, 401, "reset must revoke the previous session");
+  assert.equal((await request("/api/admin/auth/reset-password", "POST", { token: resetToken, newPassword: password }, false)).status, 400, "reset links are single-use");
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin", password }, false)).status, 200);
+  const longPassword = "x".repeat(520);
+  assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: password, newPassword: longPassword })).status, 200);
+  assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin@maigebio.local", password: longPassword }, false)).status, 200);
+  assert.equal((await request("/api/admin/auth/change-password", "POST", { currentPassword: longPassword, newPassword: password })).status, 200);
   assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "qa-admin", password }, false)).status, 200);
   assert.equal((await request("/api/admin/auth/forgot-password", "POST", { identifier: "qa-admin" }, false)).status, 200);
   const preferences = (await request("/api/admin/settings")).value.settings.site;
@@ -230,8 +242,9 @@ try {
   const exportedCsv = await request(exportStatus.value.download);
   assert.equal(exportedCsv.status, 200); assert.match(exportedCsv.value, /QA/);
   const readonlyInput = { username: "qa-readonly", email: "qa-readonly@maigebio.local", display_name: "QA Readonly", role_id: "readonly" };
-  assert.equal((await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: "1234567" })).status, 400);
-  const readonly = await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: randomBytes(6).toString("base64url") });
+  assert.equal((await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: "123456" })).status, 400);
+  const readonlyPassword = " 12345 ";
+  const readonly = await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: readonlyPassword });
   assert.equal(readonly.status, 201, JSON.stringify(readonly.value));
   const salesPassword = randomBytes(8).toString("base64url");
   const sales = await request("/api/admin/users", "POST", { username: "qa-sales", email: "qa-sales@example.com", display_name: "QA Sales", role_id: "sales", temporary_password: salesPassword });
@@ -250,6 +263,10 @@ try {
   assert.equal((await request("/api/admin/sync/health", "POST", {})).status, 403);
   assert.equal((await request("/api/admin/auth/logout", "POST", {})).status, 200);
   assert.equal((await request("/api/admin/products")).status, 401);
+  const readonlyLogin = await request("/api/admin/auth/login", "POST", { identifier: "qa-readonly", password: readonlyPassword }, false);
+  assert.equal(readonlyLogin.status, 200, "password whitespace must be preserved");
+  assert.equal(readonlyLogin.value.redirect, "/admin/change-password");
+  assert.equal((await request("/api/admin/auth/logout", "POST", {})).status, 200);
   console.log("Admin API end-to-end flow passed: auth, RBAC, category, media, product relations, translations, import queue, versions, news, lead, analytics, sync, export, logout");
 } catch (error) {
   console.error(logs);

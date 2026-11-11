@@ -4,14 +4,15 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { assertLocalDbFree } from "./check-local-db.mjs";
+import { ADMIN_PASSWORD_MIN_LENGTH } from "../lib/admin/password-policy.ts";
 
 const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 const password = process.env.ADMIN_PASSWORD;
 const name = process.env.ADMIN_NAME?.trim() || "MAIGE 管理员";
 const username = process.env.ADMIN_USERNAME?.trim().toLowerCase() || "admin";
-const minLength = 8;
+const minLength = ADMIN_PASSWORD_MIN_LENGTH;
 if (!email || !/^\S+@\S+\.\S+$/.test(email) || !password || password.length < minLength || !/^[a-z][a-z0-9._-]{2,31}$/.test(username)) {
-  throw new Error(`Set ADMIN_EMAIL, ADMIN_USERNAME and a unique ADMIN_PASSWORD of at least ${minLength} characters in the environment`);
+  throw new Error(`Set ADMIN_EMAIL, ADMIN_USERNAME and ADMIN_PASSWORD of at least ${minLength} characters in the environment`);
 }
 const salt = randomBytes(16).toString("hex");
 const hash = `scrypt$${salt}$${scryptSync(password, salt, 64).toString("hex")}`;

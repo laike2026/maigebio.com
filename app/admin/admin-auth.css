@@ -20,9 +20,42 @@
 .admin-auth-entry-inner{width:min(440px,100%)}
 .admin-auth-mobile-brand{display:none}
 .admin-auth-entry .admin-login-card{width:100%;padding:43px 42px 39px;gap:18px;border:1px solid #e4eaf3;border-radius:18px;box-shadow:0 26px 70px #12315914}
-.admin-login-eyebrow{color:var(--admin-blue);font-size:13px;font-weight:700;letter-spacing:.06em}
 .admin-auth-entry .admin-login-card h1{font-size:30px;letter-spacing:-.02em;line-height:1.2}
 .admin-login-intro{color:#6f8097!important;margin:-7px 0 6px!important;font-size:14px}
+.admin-login-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #edf3fa;
+}
+.admin-login-methods button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #526580;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.admin-login-methods button[aria-pressed="true"] {
+  border-color: #c5d7ed;
+  background: #fff;
+  color: var(--admin-blue);
+}
+.admin-login-methods button:hover { color: var(--admin-blue); }
+.admin-login-methods button:focus-visible { outline: 3px solid #ffb23e; outline-offset: 2px; }
+.admin-login-methods button:disabled { cursor: wait; opacity: .7; }
+.admin-login-card .admin-password-hint { color: #526580; font-size: 13px; font-weight: 400; line-height: 1.5; }
 .admin-auth-entry .admin-login-card label{font-size:13px;color:#263d5f;gap:8px}
 .admin-auth-entry .admin-login-card input:not([type=checkbox]){min-height:48px;border-radius:9px;border-color:#d5deea;background:#fcfdff}
 .admin-auth-entry .admin-login-card input:not([type=checkbox]):focus{border-color:#2874d5;box-shadow:0 0 0 3px #2675d318;outline:0}

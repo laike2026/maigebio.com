@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { audit, hashPassword, type AdminUser } from "@/lib/admin/auth";
 import { modules, type Field, type ModuleDefinition } from "@/lib/admin/definitions";
 import { isUniqueViolation, query, transaction, type DbRow } from "@/lib/db";
+import { ADMIN_PASSWORD_MIN_LENGTH } from "@/lib/admin/password-policy";
 
 export class AdminError extends Error {
   constructor(public code: string, message: string, public status = 400, public fields?: Record<string, string>) { super(message); }
@@ -51,6 +52,7 @@ function parseField(field: Field, value: unknown): unknown {
     return JSON.stringify(parsed);
   }
   if (typeof value !== "string") throw new AdminError("INVALID_FIELD", `${field.label}格式错误`);
+  if (field.key === "temporary_password") return value;
   const text = value.trim();
   if (text.length > (field.type === "html" ? 200_000 : field.type === "textarea" ? 20_000 : 500)) throw new AdminError("FIELD_TOO_LONG", `${field.label}过长`);
   if (field.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) throw new AdminError("INVALID_EMAIL", "邮箱格式错误");
@@ -186,7 +188,7 @@ export async function createRecord(name: string, raw: unknown, user: AdminUser) 
   await validateBusinessRules(name, values);
   if (name === "users") {
     const password = values.temporary_password;
-    if (typeof password !== "string" || password.length < 8) throw new AdminError("PASSWORD_TOO_SHORT", "初始密码至少 8 位");
+    if (typeof password !== "string" || password.length < ADMIN_PASSWORD_MIN_LENGTH) throw new AdminError("PASSWORD_TOO_SHORT", `初始密码至少 ${ADMIN_PASSWORD_MIN_LENGTH} 位`);
     values.password_hash = await hashPassword(password);
     delete values.temporary_password;
     values.email = String(values.email).toLowerCase();

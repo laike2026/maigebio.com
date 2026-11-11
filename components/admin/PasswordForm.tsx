@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
+import { ADMIN_PASSWORD_MIN_LENGTH } from "@/lib/admin/password-policy";
 
 export default function PasswordForm({ mode, token = "" }: { mode: "change" | "forgot" | "reset"; token?: string }) {
   const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
@@ -20,9 +21,9 @@ export default function PasswordForm({ mode, token = "" }: { mode: "change" | "f
     finally { setBusy(false); }
   }
   return <form className="admin-login-card" onSubmit={submit}><h1>{mode === "forgot" ? "找回密码" : mode === "reset" ? "重置密码" : "修改密码"}</h1>
-    {mode === "forgot" && <label>账号或邮箱<input name="identifier" type="text" required autoComplete="username" /></label>}
+    {mode === "forgot" && <label>用户名或邮箱<input name="identifier" type="text" required autoComplete="username" /></label>}
     {mode === "change" && <label>当前密码<span className="admin-password"><input name="currentPassword" type={showCurrent ? "text" : "password"} required autoComplete="current-password" /><button type="button" onClick={() => setShowCurrent(!showCurrent)} aria-label={showCurrent ? "隐藏当前密码" : "显示当前密码"}>{showCurrent ? <IconEyeOff size={19} /> : <IconEye size={19} />}</button></span></label>}
-    {mode !== "forgot" && <label>新密码（至少 8 位）<span className="admin-password"><input name="newPassword" type={showNew ? "text" : "password"} required minLength={8} autoComplete="new-password" /><button type="button" onClick={() => setShowNew(!showNew)} aria-label={showNew ? "隐藏新密码" : "显示新密码"}>{showNew ? <IconEyeOff size={19} /> : <IconEye size={19} />}</button></span></label>}
+    {mode !== "forgot" && <label>新密码（至少 {ADMIN_PASSWORD_MIN_LENGTH} 位）<span className="admin-password"><input name="newPassword" type={showNew ? "text" : "password"} required minLength={ADMIN_PASSWORD_MIN_LENGTH} autoComplete="new-password" /><button type="button" onClick={() => setShowNew(!showNew)} aria-label={showNew ? "隐藏新密码" : "显示新密码"}>{showNew ? <IconEyeOff size={19} /> : <IconEye size={19} />}</button></span><small className="admin-password-hint">只要求长度，不限制字符组合。</small></label>}
     {error && <p className="admin-error" role="alert">{error}</p>}{message && <p className="admin-success" role="status">{message}</p>}
     <button className="admin-primary" disabled={busy}>{busy ? "处理中…" : mode === "forgot" ? "发送重置邮件" : "保存新密码"}</button><Link href="/admin/login">返回登录</Link>
   </form>;
