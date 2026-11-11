@@ -80,7 +80,6 @@ async function socialCard(width, height, filename) {
     .png().toFile(path.join(brandDir, filename));
 }
 await socialCard(1200, 630, "maige-social.png");
-await socialCard(1280, 640, "maige-github-preview.png");
 
 const original = await readFile(source);
 console.log(`Generated exact-source MAIGE brand assets from ${original.length} source bytes.`);

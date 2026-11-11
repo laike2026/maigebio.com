@@ -63,6 +63,8 @@ try {
   await waitReady();
   assert.equal((await request("/admin", "GET", undefined, false)).status, 307);
   assert.equal((await request("/api/admin/products", "GET", undefined, false)).status, 401);
+  assert.equal((await request("/api/admin/leads/cleanup", "GET", undefined, false)).status, 401);
+  assert.equal((await request("/api/admin/leads/cleanup", "DELETE", {}, false)).status, 401);
   assert.equal((await request("/api/admin/media/upload", "POST", new FormData(), false)).status, 401);
   assert.equal((await request("/api/admin/sync/google", "GET", undefined, false)).status, 401);
   assert.equal((await request("/api/admin/auth/login", "POST", { identifier: "admin", password: "wrong" }, false)).status, 401);
@@ -241,6 +243,33 @@ try {
   assert.equal(exportStatus.value.status, "succeeded", JSON.stringify(exportStatus.value));
   const exportedCsv = await request(exportStatus.value.download);
   assert.equal(exportedCsv.status, 200); assert.match(exportedCsv.value, /QA/);
+  const ordinary = await request("/api/inquiry", "POST", { ...inquiry, name: "Research Buyer", email: `buyer-${randomUUID()}@example.com` }, false);
+  assert.equal(ordinary.status, 201, JSON.stringify(ordinary.value));
+  const candidates = await request("/api/admin/leads/cleanup");
+  assert.equal(candidates.status, 200);
+  assert.ok(candidates.value.ids.includes(lead.value.id));
+  assert.ok(candidates.value.ids.includes(different.value.id));
+  assert.ok(!candidates.value.ids.includes(ordinary.value.id), "an example email alone must not classify a buyer as test data");
+  const confirmation = "DELETE_TEST_INQUIRIES";
+  assert.equal((await request("/api/admin/leads/cleanup", "DELETE", { ids: [lead.value.id] })).status, 400);
+  const badOrigin = await fetch(`${base}/api/admin/leads/cleanup`, {
+    method: "DELETE", headers: { Origin: "https://untrusted.invalid", Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: [lead.value.id], confirmation }),
+  });
+  assert.equal(badOrigin.status, 403);
+  assert.equal((await request("/api/admin/leads/cleanup", "DELETE", { ids: [lead.value.id, ordinary.value.id], confirmation })).status, 409);
+  assert.equal((await request(`/api/admin/leads/${lead.value.id}`)).status, 200, "a mixed batch must not delete anything");
+  assert.equal((await request(`/api/admin/leads/${lead.value.id}/notes`)).value.items.length, 1);
+  assert.equal((await request(`/api/admin/leads/${ordinary.value.id}`, "DELETE")).status, 405, "ordinary inquiry deletion remains protected");
+  const cleaned = await request("/api/admin/leads/cleanup", "DELETE", { ids: [lead.value.id, different.value.id], confirmation });
+  assert.equal(cleaned.status, 200, JSON.stringify(cleaned.value));
+  assert.equal(cleaned.value.deleted, 2);
+  assert.equal((await request(`/api/admin/leads/${lead.value.id}`)).status, 404);
+  assert.equal((await request(`/api/admin/leads/${different.value.id}`)).status, 404);
+  const remainingNotes = await request(`/api/admin/leads/${lead.value.id}/notes`);
+  assert.ok(remainingNotes.status === 404 || remainingNotes.value.items.length === 0);
+  assert.equal((await request(`/api/admin/leads/${ordinary.value.id}`)).status, 200);
+  assert.equal((await request("/api/admin/leads/cleanup", "DELETE", { ids: [lead.value.id, different.value.id], confirmation })).value.deleted, 0, "cleanup retries are idempotent");
   const readonlyInput = { username: "qa-readonly", email: "qa-readonly@maigebio.local", display_name: "QA Readonly", role_id: "readonly" };
   assert.equal((await request("/api/admin/users", "POST", { ...readonlyInput, temporary_password: "123456" })).status, 400);
   const readonlyPassword = " 12345 ";
@@ -261,6 +290,8 @@ try {
   assert.equal((await request("/api/admin/sync/refresh")).status, 403);
   assert.equal((await request("/api/admin/sync/refresh", "POST", {})).status, 403);
   assert.equal((await request("/api/admin/sync/health", "POST", {})).status, 403);
+  assert.equal((await request("/api/admin/leads/cleanup")).status, 403);
+  assert.equal((await request("/api/admin/leads/cleanup", "DELETE", { ids: [ordinary.value.id], confirmation })).status, 403);
   assert.equal((await request("/api/admin/auth/logout", "POST", {})).status, 200);
   assert.equal((await request("/api/admin/products")).status, 401);
   const readonlyLogin = await request("/api/admin/auth/login", "POST", { identifier: "qa-readonly", password: readonlyPassword }, false);
